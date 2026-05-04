@@ -1,39 +1,36 @@
-# Task: Build Landing Page for Disperser Studio
+# Task: Build Dashboard & Settings Interface
 
-## 📌 Overview
-We need to build a minimalist and modern **Landing Page** for our web application, **Disperser Studio**. 
+## Objective
+Create a modern, sleek dashboard for **Disperser Studio** to replace the current basic layout. The dashboard should include side navigation and a robust settings page for handling API authentication.
 
-Disperser Studio is a platform designed to streamline the process of preparing and uploading assets (like audio and images) to Roblox. For this initial MVP phase, **our primary focus is strictly on audio assets**.
+## Requirements
 
-## 🎯 Objectives
-- **Design Style**: Modern, minimalist, and sleek (think premium SaaS, dark mode preferred but follow standard best practices).
-- **Branding**: The product name is **Disperser Studio**. Please ensure the typography and layout reflect a professional creator tool.
-- **Call to Action (CTA)**: The primary action on the landing page must be a "Login with Discord" button. 
+### 1. Modern Dashboard Layout
+- **Design Aesthetic:** Minimalist, premium, using the established "Cyan & Blue" dark theme (`bg-[#080a0c]`).
+- **Sidebar Menu:** Implement a sidebar or top navigation containing the following tabs/menus:
+  - 📊 **Overview**
+  - 🎵 **Upload Audio**
+  - 🖼️ **Upload Image**
+  - ⚙️ **Settings**
 
-## 📝 Requirements
+### 2. Settings Menu Implementation
+- Create a dedicated Settings view.
+- **Form Elements:**
+  - Input field for **UserId**
+  - Input field for **API_KEYS** (Open Cloud API Key)
+- **Helper Section (How to get API Keys):**
+  - Provide clear, step-by-step instructions on how users can generate their Open Cloud API Keys.
+  - Include direct links to the **Roblox Creator Dashboard**.
+  - Example instruction: *"Go to Creator Dashboard -> Credentials -> Open Cloud API Keys -> Create New Key (with Asset Read/Write permissions)."*
 
-### 1. Hero Section
-- **Headline**: Catchy and clear, explaining what the tool does (e.g., "The Ultimate Roblox Audio Preparation Tool").
-- **Subheadline**: A brief description mentioning the ability to import, edit, and bulk-upload audio assets to Roblox effortlessly.
-- **Primary CTA**: A prominent button saying "Login with Discord". You can use a standard Discord brand color/icon for this.
+### 3. Technical Constraints
+- Use **Vite + React + TypeScript**.
+- Styling must use **Tailwind CSS v3**.
+- Use **shadcn/ui** components (e.g., `Input`, `Button`, `Card`, `Label`) for the settings form to maintain consistency.
+- Use **lucide-react** for any necessary icons.
 
-### 2. Features/Highlights Section (Minimal)
-- Briefly highlight the core capabilities:
-  - **YouTube to Audio**: Import audio directly via URL.
-  - **Built-in Studio**: Trim, adjust pitch, speed, and volume in the browser.
-  - **Smart Queue**: Bypass Roblox upload friction and track moderation status accurately.
-
-### 3. Tech Stack Constraints
-- The project is built using **Vite + React + TypeScript**.
-- We are using **Tailwind CSS (v3)** for styling.
-- We have **shadcn/ui** installed. Please utilize existing shadcn components (like `Button`, `Card`, etc.) to build this page quickly and consistently.
-
-## ✅ Acceptance Criteria
-- [ ] A new `LandingPage.tsx` (or similar) component is created and wired up to the root route (`/`).
-- [ ] The design is responsive (works well on mobile and desktop).
-- [ ] The "Login with Discord" CTA is highly visible (no backend functionality needed yet, just the UI).
-- [ ] The code is clean, well-commented, and utilizes Tailwind CSS utility classes.
-
-## 💡 Developer Notes
-- You don't need to implement the actual Discord OAuth flow; just design the UI state for the landing page.
-- Keep the aesthetic aligned with high-end creator tools (dark themes, subtle borders, glowing accents if appropriate).
+## Acceptance Criteria
+- [ ] The dashboard layout is responsive and cleanly structured.
+- [ ] Navigation correctly switches between the 4 specified views (even if the content for Overview/Upload is currently empty/placeholder).
+- [ ] The Settings form looks professional, handles inputs securely (password type for API Key), and saves to `localStorage` (or global state).
+- [ ] The "How to get API Keys" helper text and link are visible and helpful.
