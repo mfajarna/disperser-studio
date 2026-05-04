@@ -1,0 +1,143 @@
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { ExternalLink, Key, User, Info, Save, CheckCircle, Users, Shield } from 'lucide-react';
+
+export default function Settings() {
+  const [userId, setUserId] = useState(localStorage.getItem('disperser_user_id') || '');
+  const [apiKey, setApiKey] = useState(localStorage.getItem('disperser_key') || '');
+  const [saved, setSaved] = useState(false);
+
+  const handleSave = () => {
+    localStorage.setItem('disperser_user_id', userId);
+    localStorage.setItem('disperser_key', apiKey);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 3000);
+  };
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-500">
+      <div className="page-header">
+        <h1 className="page-title">Settings</h1>
+        <p className="page-desc">Manage your Roblox credentials and application preferences.</p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Main Settings Form */}
+        <div className="lg:col-span-2 space-y-6">
+          <Card className="bg-slate-900/50 border-slate-800 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="text-xl flex items-center gap-2">
+                <Key className="text-cyan-400" size={20} />
+                Roblox Authentication
+              </CardTitle>
+              <CardDescription className="text-slate-400">
+                These credentials are required to interact with the Roblox Open Cloud API.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="userId" className="text-slate-300 flex items-center gap-2">
+                    <User size={14} /> Roblox User ID
+                  </Label>
+                  <Input
+                    id="userId"
+                    placeholder="e.g. 12345678"
+                    value={userId}
+                    onChange={(e) => setUserId(e.target.value)}
+                    className="bg-slate-950 border-slate-800 text-white placeholder:text-slate-600 focus-visible:ring-cyan-500/50"
+                  />
+                  <p className="text-[11px] text-slate-500">Your unique Roblox numeric ID (can be found in your profile URL).</p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="apiKey" className="text-slate-300 flex items-center gap-2">
+                  <Key size={14} /> Open Cloud API Key
+                </Label>
+                <Input
+                  id="apiKey"
+                  type="password"
+                  placeholder="Paste your API key here..."
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  className="bg-slate-950 border-slate-800 text-white placeholder:text-slate-600 focus-visible:ring-cyan-500/50"
+                />
+                <p className="text-[11px] text-slate-500">Required permissions: Asset Read & Asset Write.</p>
+              </div>
+
+              <Button
+                onClick={handleSave}
+                className="w-full bg-cyan-600 hover:bg-cyan-500 text-white gap-2 transition-all active:scale-[0.98]"
+              >
+                {saved ? <CheckCircle size={18} /> : <Save size={18} />}
+                {saved ? 'Changes Saved' : 'Save Credentials'}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-slate-900/50 border-slate-800 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="text-xl flex items-center gap-2">
+                <Shield className="text-cyan-400" size={20} />
+                Security Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-slate-400 mb-4">
+                Your credentials are stored securely in your browser's local storage and are only sent directly to your local backend server to communicate with Roblox APIs.
+              </p>
+              <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
+                <h4 className="text-sm font-medium text-white mb-2">Required API Permissions</h4>
+                <ul className="text-xs text-slate-400 space-y-2">
+                  <li className="flex items-start gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 mt-1 shrink-0" />
+                    <strong>Assets API</strong> (Read & Write) - Required for uploading and checking status.
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-purple-500 mt-1 shrink-0" />
+                    <strong>Asset Permissions API</strong> (Write) - Required for managing asset permissions.
+                  </li>
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Instructions Sidebar */}
+        <div className="space-y-6">
+          <Card className="bg-slate-900/50 border-slate-800 border-dashed">
+            <CardHeader>
+              <CardTitle className="text-sm font-bold flex items-center gap-2">
+                <Info className="text-cyan-400" size={16} />
+                How to get API Keys?
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-slate-400 space-y-4 leading-relaxed">
+              <ol className="list-decimal list-inside space-y-3">
+                <li>
+                  Go to the <a href="https://create.roblox.com/dashboard/credentials?activeTab=ApiKeysTab" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline inline-flex items-center gap-1">
+                    Roblox Creator Dashboard <ExternalLink size={12} />
+                  </a>
+                </li>
+                <li>Click on <span className="text-white font-medium">"Create API Key"</span>.</li>
+                <li>Add a name (e.g., "Disperser Studio").</li>
+                <li>
+                  In <span className="text-white font-medium">API Permissions</span>, add:
+                  <ul className="list-disc list-inside ml-4 mt-1 text-xs text-slate-500">
+                    <li>Assets API (Read & Write)</li>
+                    <li>Asset Permissions API (Write)</li>
+                  </ul>
+                </li>
+                <li>Copy the generated key and paste it here!</li>
+              </ol>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}

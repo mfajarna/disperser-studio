@@ -11,15 +11,34 @@ export const processAudio = async (
   }
 ) => {
   const { volume, speed, pitch, trimStart, trimEnd } = options;
-  const duration = (trimEnd - trimStart) / speed;
+  const trimDuration = trimEnd - trimStart;
+  const outputDuration = trimDuration / speed;
 
-  return await Tone.Offline(async () => {
-    const source = new Tone.BufferSource(buffer);
-    const vol = new Tone.Volume(Tone.gainToDb(volume)).toDestination();
-    const shift = new Tone.PitchShift(pitch).connect(vol);
-    
-    source.connect(shift);
-    source.playbackRate = speed;
-    source.start(0, trimStart, trimEnd - trimStart);
-  }, duration);
+  // Ensure minimum duration
+  if (outputDuration <= 0) {
+    throw new Error('Invalid trim region. Please select a valid range.');
+  }
+
+  return await Tone.Offline(async ({ transport }) => {
+    // Create a ToneAudioBuffer from the raw AudioBuffer
+    const toneBuffer = new Tone.ToneAudioBuffer(buffer);
+
+    // Create the audio processing chain
+    const pitchShift = new Tone.PitchShift({
+      pitch: pitch,
+      windowSize: 0.1,
+      delayTime: 0,
+    }).toDestination();
+
+    const volumeNode = new Tone.Volume(
+      volume === 0 ? -Infinity : Tone.gainToDb(volume)
+    ).connect(pitchShift);
+
+    // Create the source player
+    const player = new Tone.Player(toneBuffer).connect(volumeNode);
+    player.playbackRate = speed;
+
+    // Schedule playback from trimStart for the trim duration
+    player.start(0, trimStart, trimDuration);
+  }, outputDuration, 2, buffer.sampleRate);
 };
