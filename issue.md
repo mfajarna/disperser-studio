@@ -3,7 +3,8 @@
 ## Objective
 Enhance the **Audio Studio** bulk upload flow by integrating a user-friendly bulk editor UI that automatically loads after processing. Ensure that local file uploads and YouTube uploads behave consistently, and implement automatic naming to reduce user friction.
 
-## Requirements
+## Bug Description
+Currently, when a user attempts to upload an audio asset to Roblox from the Audio Library feature, the application UI gets stuck or freezes, preventing further interaction.
 
 ### 1. Post-Processing Bulk Editor
 - Once the bulk upload process (YouTube downloads or Local file reading) is complete, automatically transition the user to an **Edit Audio** page/view specifically designed for bulk processing.
