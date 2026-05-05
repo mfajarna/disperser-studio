@@ -8,6 +8,7 @@ import LandingPage from './pages/LandingPage';
 import AudioStudio from './pages/AudioStudio';
 import AudioLibrary from './pages/AudioLibrary';
 import { PollProvider } from './context/PollContext';
+import { BulkUploadProvider, useBulkUpload } from './context/BulkUploadContext';
 import { 
   LayoutDashboard, 
   Music, 
@@ -18,7 +19,9 @@ import {
   ArrowLeft,
   ChevronRight,
   Sparkles,
-  ListMusic
+  ListMusic,
+  Loader2,
+  AlertCircle
 } from 'lucide-react';
 
 // --- Components ---
@@ -26,6 +29,7 @@ import {
 const Sidebar = () => {
   const loc = useLocation();
   const navigate = useNavigate();
+  const { bulkQueue, isBulkProcessing } = useBulkUpload();
   const logout = () => { 
     localStorage.removeItem('disperser_key'); 
     navigate('/');
@@ -71,7 +75,25 @@ const Sidebar = () => {
         })}
       </nav>
 
-      <div className="pt-4 border-t border-slate-800">
+      <div className="pt-4 border-t border-slate-800 space-y-4">
+        {bulkQueue.length > 0 && (
+          <div className="px-2 py-3 bg-slate-900/50 border border-slate-800 rounded-xl">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Bulk Status</span>
+              {isBulkProcessing && <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />}
+            </div>
+            <div className="flex items-center gap-2">
+              {isBulkProcessing ? <Loader2 size={14} className="text-cyan-400 animate-spin" /> : <Sparkles size={14} className="text-slate-500" />}
+              <span className="text-xs text-slate-300 font-medium">
+                {bulkQueue.filter(i => i.status === 'success').length} / {bulkQueue.length} Ready
+              </span>
+            </div>
+            <Link to="/dashboard/studio" className="text-[10px] text-cyan-500 hover:text-cyan-400 mt-2 block font-bold transition-colors">
+              VIEW QUEUE →
+            </Link>
+          </div>
+        )}
+
         <button 
           className="nav-link w-full flex items-center gap-3 text-slate-400 hover:text-red-400 hover:bg-red-500/5 transition-all" 
           onClick={logout}
@@ -144,19 +166,21 @@ const DashboardLayout = ({ keyExists }: { keyExists: boolean }) => {
 
   return (
     <PollProvider>
-      <div className="layout">
-        <Sidebar />
-        <main className="content">
-          <Routes>
-            <Route path="/" element={<Overview />} />
-            <Route path="/studio" element={<AudioStudio />} />
-            <Route path="/library" element={<AudioLibrary />} />
-            <Route path="/image" element={<UploadImage />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="*" element={<Navigate to="/" />} />
-          </Routes>
-        </main>
-      </div>
+      <BulkUploadProvider>
+        <div className="layout">
+          <Sidebar />
+          <main className="content">
+            <Routes>
+              <Route path="/" element={<Overview />} />
+              <Route path="/studio" element={<AudioStudio />} />
+              <Route path="/library" element={<AudioLibrary />} />
+              <Route path="/image" element={<UploadImage />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="*" element={<Navigate to="/" />} />
+            </Routes>
+          </main>
+        </div>
+      </BulkUploadProvider>
     </PollProvider>
   );
 };
