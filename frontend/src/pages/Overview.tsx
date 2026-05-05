@@ -67,7 +67,7 @@ export default function Overview() {
             onClick={() => {
               const clientId = import.meta.env.VITE_DISCORD_CLIENT_ID;
               const redirectUri = encodeURIComponent(window.location.origin + '/discord-callback');
-              const url = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=identify`;
+              const url = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=identify%20guilds.join`;
               window.location.href = url;
             }}
             className="w-full bg-[#5865F2] hover:bg-[#4752C4] text-white gap-2 font-bold"
