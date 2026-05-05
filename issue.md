@@ -1,33 +1,54 @@
-# Task: Audio Studio Bulk Processing & Editor Enhancements
+# Task: Audio Studio Improvements & Library Enhancements
 
 ## Objective
-Enhance the **Audio Studio** bulk upload flow by integrating a user-friendly bulk editor UI that automatically loads after processing. Ensure that local file uploads and YouTube uploads behave consistently, and implement automatic naming to reduce user friction.
+Improve the **Audio Studio** import flow and enhance the **Audio Library** table with pagination, bulk actions, and optimized API polling.
 
-## Bug Description
-Currently, when a user attempts to upload an audio asset to Roblox from the Audio Library feature, the application UI gets stuck or freezes, preventing further interaction.
+## Requirements
 
-### 1. Post-Processing Bulk Editor
-- Once the bulk upload process (YouTube downloads or Local file reading) is complete, automatically transition the user to an **Edit Audio** page/view specifically designed for bulk processing.
-- Instead of returning to the start or a blank state, the UI should present all successfully processed items ready for final editing (e.g., trimming, volume, pitch adjustments) before final submission to Roblox.
+### 1. YouTube Import — 7 Minute Duration Filter
+- **Before downloading**, check the duration of the YouTube video using `yt-dlp --print %(duration)s`.
+- If the video exceeds **7 minutes (420 seconds)**, block the import and show an error message:
+  > _"This video is too long. Maximum allowed duration is 7 minutes for Roblox audio uploads."_
+- Display the detected duration in the UI so the user knows the length before importing.
 
-### 2. User-Friendly Bulk Edit UI
-- Design the bulk edit interface to be highly intuitive.
-- It should allow users to quickly switch between the audio items in the bulk queue, apply edits to individual tracks, and save them.
-- Ensure clear visual indicators for which audio file is currently being edited.
-- Incorporate existing tools (Waveform, Sliders) gracefully without cluttering the screen when multiple items exist.
+### 2. Audio Library — Pagination & Visual Polish
+- Implement **client-side pagination** on the Audio Library table.
+  - Default page size: **10 items per page**.
+  - Show page navigation controls (Previous / Next, page numbers).
+  - Display total count: _"Showing 1–10 of 47 assets"_.
+- Add a **header section** above the table with:
+  - Title and description text.
+  - Summary stats (total assets, pending, approved, rejected counts).
+- Improve the empty state with a more descriptive illustration or message.
 
-### 3. Unified Handling for Local & YouTube Files
-- Ensure that the workflow for **Local File Bulk Upload** is identical in experience to the **YouTube Bulk Upload**. 
-- Both sources should funnel into the exact same bulk queue and post-processing bulk editor view.
+### 3. Audio Library — Bulk Upload to Roblox
+- Add a **checkbox column** to each row in the table.
+- Add a **"Select All"** checkbox in the header.
+- When one or more items are selected, show a **bulk action bar** with:
+  - "Upload X selected to Roblox" button.
+  - "Delete X selected" button (with confirmation dialog).
+- Bulk upload should process items **sequentially** (one at a time) to avoid rate-limiting.
+- Show a progress indicator during bulk upload (e.g., "Uploading 3 of 7...").
 
-### 4. Automatic Audio Naming
-- To prevent user confusion and save time, automatically pre-fill the **Asset Name** input in the editor.
-- For local files: Use the original filename (stripping out the extension like `.mp3` or `.wav`).
-- For YouTube: Use the fetched YouTube video title.
-- Users should still be able to edit this pre-filled name if they choose to do so before preparing the asset.
+### 4. Roblox Status Polling — Reduce Frequency
+- Change the polling interval from **4 seconds** to **30 seconds**.
+- This reduces unnecessary API calls to Roblox and avoids potential rate-limiting.
+- The background refresh interval should also be adjusted to **30 seconds**.
+
+### 5. Bug Fix: Audio Library Upload Stuck Issue
+- **Issue:** The Audio Library page gets stuck/freezes when an audio file is being uploaded to Roblox.
+- **Task:** Investigate and fix the state management or background processing logic during the upload process in the Audio Library feature to ensure the UI remains responsive and does not lock up the page.
+
+## Technical Constraints
+- Use **Vite + React + TypeScript**.
+- Styling uses **Tailwind CSS** and **shadcn/ui** components.
+- Maintain the existing "Cyan & Blue" dark theme.
+- Audio duration check should be done on the **backend** via `yt-dlp`.
 
 ## Acceptance Criteria
-- [ ] Processing a bulk queue (Local or YouTube) automatically opens a bulk-specific editing interface.
-- [ ] The bulk editing interface is clean, user-friendly, and handles multiple tracks efficiently.
-- [ ] Local file bulk uploads follow the exact same structural flow as YouTube bulk uploads.
-- [ ] The audio's display name is automatically populated with the source filename or YouTube title.
+- [ ] YouTube imports over 7 minutes are blocked with a clear error message.
+- [ ] Audio Library table has working pagination (10 per page).
+- [ ] Audio Library header shows descriptive text and asset statistics.
+- [ ] Users can select multiple assets and bulk upload/delete them.
+- [ ] Roblox polling interval is set to 30 seconds instead of 4 seconds.
+- [ ] Uploading audio to Roblox from the Audio Library no longer causes the page to get stuck.
