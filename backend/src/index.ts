@@ -14,7 +14,9 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 5001;
 
-app.use(cors());
+app.use(cors({
+  exposedHeaders: ['X-Audio-Title']
+}));
 app.use(express.json());
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -143,12 +145,15 @@ app.post('/api/youtube/download', async (req, res) => {
         '--no-warnings',
         url
       ], { timeout: 15000 }, (err, stdout) => {
+        const urlObj = new URL(url);
+        const videoId = urlObj.searchParams.get('v') || url.split('/').pop() || 'audio';
+        
         if (err) {
-          resolve({ title: 'audio', duration: 0 });
+          resolve({ title: `YouTube Audio (${videoId})`, duration: 0 });
         } else {
           const lines = stdout.trim().split('\n');
           resolve({
-            title: lines[0] || 'audio',
+            title: lines[0] || `YouTube Audio (${videoId})`,
             duration: parseFloat(lines[1]) || 0
           });
         }

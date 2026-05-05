@@ -170,7 +170,26 @@ export const api = {
       const errorData = await res.json().catch(() => ({}));
       throw new Error(errorData.error || 'Download failed');
     }
-    const title = decodeURIComponent(res.headers.get('X-Audio-Title') || 'audio');
+    
+    // Debug headers
+    const headers: any = {};
+    res.headers.forEach((val, key) => { headers[key] = val; });
+    console.log('Download headers:', headers);
+
+    let title = res.headers.get('X-Audio-Title');
+    if (title) {
+      title = decodeURIComponent(title);
+    } else {
+      // Fallback: try to get video ID from URL
+      try {
+        const urlObj = new URL(url);
+        const videoId = urlObj.searchParams.get('v') || url.split('/').pop();
+        title = `YouTube Audio (${videoId})`;
+      } catch {
+        title = 'YouTube Audio';
+      }
+    }
+
     const buffer = await res.arrayBuffer();
     return { title, buffer: new Uint8Array(buffer) };
   },
