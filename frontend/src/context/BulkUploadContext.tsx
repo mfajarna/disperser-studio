@@ -142,11 +142,22 @@ export const BulkUploadProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     try {
       for (let i = 0; i < itemsToProcess.length; i++) {
         const item = itemsToProcess[i];
+        
+        // Duration Validation
+        const trimStart = item.trim?.start || 0;
+        const trimEnd = item.trim?.end || item.buffer?.duration || 0; // Assuming buffer has duration or we get it from decode
+        
+        // Actually we need to decode first to get duration if not present
         setLoadingMsg(`Processing ${i + 1}/${itemsToProcess.length}: ${item.assetName || item.name}...`);
         
         const audioCtx = new AudioContext();
         const original = await audioCtx.decodeAudioData(item.buffer!.buffer.slice(0));
         audioCtx.close();
+
+        const finalDuration = ( (item.trim?.end || original.duration) - (item.trim?.start || 0) ) / item.speed;
+        if (finalDuration > 420) {
+          throw new Error(`Asset "${item.assetName || item.name}" is too long (${Math.floor(finalDuration / 60)}m ${Math.round(finalDuration % 60)}s). Max 7 mins.`);
+        }
 
         const processed = await processAudio(original, {
           volume: item.volume,
