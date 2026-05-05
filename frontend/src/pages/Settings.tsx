@@ -3,18 +3,76 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { ExternalLink, Key, User, Info, Save, CheckCircle, Users, Shield } from 'lucide-react';
+import { ExternalLink, Key, User, Info, Save, CheckCircle, Users, Shield, Loader2 } from 'lucide-react';
+
+import { supabase } from '@/api/supabase';
 
 export default function Settings() {
   const [userId, setUserId] = useState(localStorage.getItem('disperser_user_id') || '');
   const [apiKey, setApiKey] = useState(localStorage.getItem('disperser_key') || '');
+  const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  const handleSave = () => {
-    localStorage.setItem('disperser_user_id', userId);
-    localStorage.setItem('disperser_key', apiKey);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+  // Fetch from Supabase on load
+  useEffect(() => {
+    const fetchUserData = async () => {
+      const storedUser = localStorage.getItem('disperser_user');
+      if (!storedUser) return;
+      
+      const { id } = JSON.parse(storedUser);
+      
+      const { data, error } = await supabase
+        .from('users')
+        .select('roblox_user_id, roblox_api_key')
+        .eq('id', id)
+        .single();
+        
+      if (data && !error) {
+        if (data.roblox_user_id) {
+          setUserId(data.roblox_user_id);
+          localStorage.setItem('disperser_user_id', data.roblox_user_id);
+        }
+        if (data.roblox_api_key) {
+          setApiKey(data.roblox_api_key);
+          localStorage.setItem('disperser_key', data.roblox_api_key);
+        }
+      }
+    };
+    
+    fetchUserData();
+  }, []);
+
+  const handleSave = async () => {
+    setLoading(true);
+    try {
+      const storedUser = localStorage.getItem('disperser_user');
+      if (!storedUser) throw new Error('Not logged in');
+      
+      const { id } = JSON.parse(storedUser);
+      
+      // Update Supabase
+      const { error } = await supabase
+        .from('users')
+        .update({
+          roblox_user_id: userId,
+          roblox_api_key: apiKey
+        })
+        .eq('id', id);
+        
+      if (error) throw error;
+
+      // Update LocalStorage for quick access in API calls
+      localStorage.setItem('disperser_user_id', userId);
+      localStorage.setItem('disperser_key', apiKey);
+      
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (e: any) {
+      console.error('Save failed:', e);
+      alert('Failed to save: ' + e.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -71,10 +129,11 @@ export default function Settings() {
 
               <Button
                 onClick={handleSave}
+                disabled={loading}
                 className="w-full bg-cyan-600 hover:bg-cyan-500 text-white gap-2 transition-all active:scale-[0.98]"
               >
-                {saved ? <CheckCircle size={18} /> : <Save size={18} />}
-                {saved ? 'Changes Saved' : 'Save Credentials'}
+                {loading ? <Loader2 className="animate-spin" size={18} /> : (saved ? <CheckCircle size={18} /> : <Save size={18} />)}
+                {loading ? 'Saving...' : (saved ? 'Changes Saved' : 'Save Credentials')}
               </Button>
             </CardContent>
           </Card>

@@ -1,8 +1,12 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Music, Image as ImageIcon, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { Music, Image as ImageIcon, CheckCircle, Clock, AlertCircle, MessageSquare } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 export default function Overview() {
+  const user = JSON.parse(localStorage.getItem('disperser_user') || '{}');
+  const username = user.username || 'Creator';
+
   const stats = [
     { label: 'Total Audios', value: '124', icon: <Music className="text-cyan-400" />, trend: '+12% this week' },
     { label: 'Total Images', value: '42', icon: <ImageIcon className="text-blue-400" />, trend: '+5% this week' },
@@ -13,7 +17,13 @@ export default function Overview() {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="page-header">
-        <h1 className="page-title">Dashboard Overview</h1>
+        <div className="flex items-center gap-2 text-cyan-400 text-sm font-bold mb-2">
+          <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+          SYSTEM ONLINE
+        </div>
+        <h1 className="text-4xl font-black text-white tracking-tight mb-2">
+          Halo, <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">{username}</span>
+        </h1>
         <p className="page-desc">Welcome back to Disperser Studio. Here's a quick look at your assets.</p>
       </div>
 
@@ -39,14 +49,44 @@ export default function Overview() {
           <AlertCircle size={48} className="mb-4 opacity-20" />
           <p>Recent activity charts will be available once you start uploading assets.</p>
         </Card>
-        
+
+        <Card className="bg-slate-900/40 border-slate-800 p-6 space-y-6 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center">
+                <MessageSquare className="text-indigo-400" />
+              </div>
+              <h3 className="font-bold text-white text-lg">Community Access</h3>
+            </div>
+            <p className="text-sm text-slate-400 leading-relaxed">
+              Verify your account with Discord to unlock special roles, get support, and join the community.
+            </p>
+          </div>
+
+          <Button
+            onClick={() => {
+              const clientId = import.meta.env.VITE_DISCORD_CLIENT_ID;
+              const redirectUri = encodeURIComponent(window.location.origin + '/discord-callback');
+              const url = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=identify`;
+              window.location.href = url;
+            }}
+            className="w-full bg-[#5865F2] hover:bg-[#4752C4] text-white gap-2 font-bold"
+          >
+            <MessageSquare size={18} />
+            Connect Discord
+          </Button>
+        </Card>
+
         <Card className="bg-slate-900/40 border-slate-800 p-6 space-y-4">
           <h3 className="font-bold text-white mb-4">Quick Links</h3>
           <div className="space-y-2">
             <button className="w-full text-left p-3 rounded-lg bg-slate-800/50 hover:bg-slate-800 transition-colors text-sm text-slate-300">
               Roblox Creator Dashboard
             </button>
-            <button className="w-full text-left p-3 rounded-lg bg-slate-800/50 hover:bg-slate-800 transition-colors text-sm text-slate-300">
+            <button
+              onClick={() => window.open('https://discord.gg/2dRtqgmKPR', '_blank')}
+              className="w-full text-left p-3 rounded-lg bg-slate-800/50 hover:bg-slate-800 transition-colors text-sm text-slate-300"
+            >
               Community Discord
             </button>
             <button className="w-full text-left p-3 rounded-lg bg-slate-800/50 hover:bg-slate-800 transition-colors text-sm text-slate-300">

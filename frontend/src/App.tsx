@@ -9,6 +9,7 @@ import AudioStudio from './pages/AudioStudio';
 import AudioLibrary from './pages/AudioLibrary';
 import { PollProvider } from './context/PollContext';
 import { BulkUploadProvider, useBulkUpload } from './context/BulkUploadContext';
+import DiscordCallback from './pages/DiscordCallback';
 import {
   LayoutDashboard,
   Music,
@@ -21,7 +22,8 @@ import {
   Sparkles,
   ListMusic,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  MessageSquare
 } from 'lucide-react';
 
 // --- Components ---
@@ -32,7 +34,9 @@ const Sidebar = () => {
   const { bulkQueue, isBulkProcessing } = useBulkUpload();
   const logout = () => {
     localStorage.removeItem('disperser_key');
-    navigate('/');
+    localStorage.removeItem('disperser_user_id');
+    localStorage.removeItem('disperser_user');
+    window.location.href = '/'; // Force reload to clear all states
   };
 
   const menuItems = [
@@ -43,6 +47,8 @@ const Sidebar = () => {
     { name: 'Settings', path: '/dashboard/settings', icon: <SettingsIcon size={20} /> },
   ];
 
+  const user = JSON.parse(localStorage.getItem('disperser_user') || '{}');
+
   return (
     <aside className="sidebar">
       <div className="logo flex items-center gap-3 px-2">
@@ -52,6 +58,26 @@ const Sidebar = () => {
         <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
           Disperser
         </span>
+      </div>
+
+      {/* User Profile Section in Sidebar */}
+      <div className="px-2 mb-6">
+        <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-3 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center overflow-hidden border border-slate-700">
+            {user.avatar ? (
+              <img src={`https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`} alt="avatar" />
+            ) : (
+              <MessageSquare size={18} className="text-indigo-400" />
+            )}
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <div className="text-sm font-bold text-white truncate">{user.username || 'Creator'}</div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Live</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <nav className="flex-1 space-y-1 mt-0">
@@ -107,16 +133,14 @@ const Sidebar = () => {
   );
 };
 
-const Login = ({ setKey }: { setKey: (k: string) => void }) => {
-  const [inputKey, setInputKey] = useState('');
+const Login = ({ setUser }: { setUser: (u: any) => void }) => {
   const navigate = useNavigate();
 
-  const handleLogin = () => {
-    if (inputKey.trim()) {
-      localStorage.setItem('disperser_key', inputKey.trim());
-      setKey(inputKey.trim());
-      navigate('/dashboard');
-    }
+  const handleDiscordLogin = () => {
+    const clientId = import.meta.env.VITE_DISCORD_CLIENT_ID;
+    const redirectUri = encodeURIComponent(window.location.origin + '/discord-callback');
+    const url = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=identify`;
+    window.location.href = url;
   };
 
   return (
@@ -135,20 +159,14 @@ const Login = ({ setKey }: { setKey: (k: string) => void }) => {
         <div className="space-y-6">
           <div className="space-y-2 text-center">
             <h2 className="text-2xl font-bold">Welcome back</h2>
-            <p className="text-slate-400 text-sm">Enter your Roblox Open Cloud API Key to access the studio.</p>
+            <p className="text-slate-400 text-sm">Please authorize with Discord to access the studio.</p>
           </div>
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Open Cloud API Key</label>
-            <input
-              className="w-full bg-[#080a0c] border border-slate-800 rounded-xl py-3 px-4 text-white focus:ring-2 focus:ring-cyan-500/50 outline-none transition-all"
-              type="password"
-              placeholder="Paste key here..."
-              value={inputKey}
-              onChange={e => setInputKey(e.target.value)}
-            />
-          </div>
-          <button className="w-full py-4 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-xl font-bold shadow-lg shadow-cyan-600/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2" onClick={handleLogin}>
-            <Key size={18} /> Initialize Studio
+          
+          <button 
+            className="w-full py-4 bg-[#5865F2] hover:bg-[#4752C4] text-white rounded-xl font-bold shadow-lg shadow-cyan-600/20 transition-all active:scale-[0.98] flex items-center justify-center gap-3" 
+            onClick={handleDiscordLogin}
+          >
+            <MessageSquare size={20} /> Login with Discord
           </button>
         </div>
       </div>
@@ -158,11 +176,18 @@ const Login = ({ setKey }: { setKey: (k: string) => void }) => {
 
 const Home = () => {
   const navigate = useNavigate();
+  
+  useEffect(() => {
+    if (localStorage.getItem('disperser_user')) {
+      navigate('/dashboard');
+    }
+  }, [navigate]);
+
   return <LandingPage onLoginClick={() => navigate('/login')} />;
 };
 
-const DashboardLayout = ({ keyExists }: { keyExists: boolean }) => {
-  if (!keyExists) return <Navigate to="/login" />;
+const DashboardLayout = ({ userExists }: { userExists: boolean }) => {
+  if (!userExists) return <Navigate to="/login" />;
 
   return (
     <PollProvider>
@@ -188,14 +213,15 @@ const DashboardLayout = ({ keyExists }: { keyExists: boolean }) => {
 // --- Main App ---
 
 export default function App() {
-  const [key, setKey] = useState(localStorage.getItem('disperser_key'));
+  const [user, setUser] = useState(localStorage.getItem('disperser_user'));
 
   return (
     <Router>
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/login" element={<Login setKey={setKey} />} />
-        <Route path="/dashboard/*" element={<DashboardLayout keyExists={!!key} />} />
+        <Route path="/login" element={<Login setUser={setUser} />} />
+        <Route path="/discord-callback" element={<DiscordCallback />} />
+        <Route path="/dashboard/*" element={<DashboardLayout userExists={!!user} />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Router>

@@ -9,10 +9,18 @@ import fs from 'fs';
 import os from 'os';
 import http from 'http';
 
-dotenv.config();
+import { createClient } from '@supabase/supabase-js';
+
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 const app = express();
 const port = process.env.PORT || 5001;
+
+// Initialize Supabase
+const supabase = createClient(
+  process.env.VITE_SUPABASE_URL || "",
+  process.env.VITE_SUPABASE_ANON_KEY || "" // Note: In production, use SERVICE_ROLE_KEY for backend operations
+);
 
 app.use(cors({
   exposedHeaders: ['X-Audio-Title']
@@ -264,6 +272,137 @@ app.post('/api/youtube/download', async (req, res) => {
   } catch (error) {
     try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { }
     console.error('YouTube download failed:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// --- Discord API Endpoints ---
+
+app.post('/api/discord/callback', async (req, res) => {
+  const { code, redirect_uri } = req.body;
+
+  if (!code) {
+    return res.status(400).json({ success: false, error: 'Missing code' });
+  }
+
+  try {
+    // 1. Exchange code for access token
+    console.log('📡 Exchanging Discord code for token...');
+    const tokenResponse = await fetch('https://discord.com/api/oauth2/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: process.env.DISCORD_CLIENT_ID || "",
+        client_secret: process.env.DISCORD_CLIENT_SECRET || "",
+        grant_type: 'authorization_code',
+        code: code,
+        redirect_uri: redirect_uri,
+      }),
+    });
+
+    const tokenData = await tokenResponse.json();
+    if (!tokenResponse.ok) {
+      console.error('❌ Discord Token Error:', tokenData);
+      throw new Error(tokenData.error_description || 'Failed to exchange token');
+    }
+
+    const accessToken = tokenData.access_token;
+
+    // 2. Get User Info
+    const userResponse = await fetch('https://discord.com/api/users/@me', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const userData = await userResponse.json();
+
+    if (!userResponse.ok) throw new Error('Failed to get user data');
+
+    const userId = userData.id;
+    console.log(`📡 Discord Login: ${userData.username} (${userId})`);
+
+    // 2.5 Save/Update User in Supabase
+    const { error: dbError } = await supabase
+      .from('users')
+      .upsert({
+        id: userId,
+        username: userData.username,
+        avatar: userData.avatar,
+        last_login: new Date().toISOString()
+      }, { onConflict: 'id' });
+
+    if (dbError) {
+      console.error('❌ Supabase User Sync Error:', dbError);
+      // We continue even if DB sync fails, but log it
+    }
+
+    // 3. Give Role (Using Bot Token)
+    const guildId = process.env.DISCORD_GUILD_ID;
+    const roleId = process.env.DISCORD_ROLE_ID;
+    const botToken = process.env.DISCORD_BOT_TOKEN;
+
+    if (!guildId || !roleId || !botToken) {
+      console.error('❌ Missing Discord configuration in .env');
+      return res.json({ success: true, user: userData, roleGiven: false, error: 'Server misconfiguration' });
+    }
+
+    const roleUrl = `https://discord.com/api/v10/guilds/${guildId}/members/${userId}/roles/${roleId}`;
+    
+    console.log(`🏷️ Attempting to give role ${roleId} in guild ${guildId} to user ${userId}`);
+
+    const roleResponse = await fetch(roleUrl, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bot ${botToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!roleResponse.ok) {
+      const errorData = await roleResponse.json().catch(() => ({}));
+      console.error('❌ Failed to give role:', errorData);
+      return res.json({ 
+        success: true, 
+        user: userData, 
+        roleGiven: false, 
+        error: 'Could not give role. Make sure you are in the server!' 
+      });
+    }
+
+    console.log(`✅ Role successfully given to ${userData.username}`);
+    res.json({ success: true, user: userData, roleGiven: true });
+
+  } catch (error) {
+    console.error('❌ Discord Auth Error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Manual Role Verification (Retry)
+app.post('/api/discord/verify-role', async (req, res) => {
+  const { userId } = req.body;
+  const guildId = process.env.DISCORD_GUILD_ID;
+  const roleId = process.env.DISCORD_ROLE_ID;
+  const botToken = process.env.DISCORD_BOT_TOKEN;
+
+  if (!userId || !guildId || !roleId || !botToken) {
+    return res.status(400).json({ success: false, error: 'Missing parameters' });
+  }
+
+  try {
+    const roleUrl = `https://discord.com/api/v10/guilds/${guildId}/members/${userId}/roles/${roleId}`;
+    const roleResponse = await fetch(roleUrl, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bot ${botToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!roleResponse.ok) {
+      return res.json({ success: false, error: 'User not found in server or permission error.' });
+    }
+
+    res.json({ success: true });
+  } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }
 });

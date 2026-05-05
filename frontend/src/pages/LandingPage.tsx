@@ -7,92 +7,86 @@ interface LandingPageProps {
 
 const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick }) => {
   return (
-    <div className="min-h-screen bg-[#080a0c] text-white selection:bg-cyan-500/30 relative">
-      {/* Global Background Grid (Dot Pattern) */}
+    <div className="min-h-screen bg-[#06080a] text-white selection:bg-cyan-500/30 relative">
+      {/* Dynamic Background Glows - Cyan, Blue, Green */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
-        <svg className="absolute inset-0 w-full h-full opacity-30" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <pattern id="dotGrid" width="32" height="32" patternUnits="userSpaceOnUse">
-              <circle cx="2" cy="2" r="2" fill="rgba(255, 255, 255, 0.5)" />
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill="url(#dotGrid)" />
-        </svg>
+        {/* Top Left - Cyan */}
+        <div className="absolute top-[-10%] left-[-10%] w-[45%] h-[45%] bg-cyan-600/10 blur-[140px] rounded-full" />
+        {/* Top Right - Green */}
+        <div className="absolute top-[-5%] right-[-5%] w-[35%] h-[35%] bg-emerald-500/10 blur-[130px] rounded-full" />
+        {/* Bottom Right - Blue */}
+        <div className="absolute bottom-[-10%] right-[-10%] w-[45%] h-[45%] bg-blue-600/10 blur-[140px] rounded-full" />
       </div>
 
       {/* Navigation */}
-      <nav className="flex items-center justify-between px-8 py-6 max-w-7xl mx-auto border-b border-white/5 sticky top-0 bg-[#080a0c]/80 backdrop-blur-md z-50">
+      <nav className="flex items-center justify-between px-10 py-8 max-w-7xl mx-auto z-50 relative">
         <div className="flex items-center gap-3">
-          <div className="bg-gradient-to-br from-cyan-500 to-blue-600 w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-500/20">
-            <Music size={22} className="text-white" />
+          <div className="bg-gradient-to-br from-cyan-500 to-blue-600 w-9 h-9 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-500/20">
+            <Music size={20} className="text-white" />
           </div>
-          <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
-            Disperser Studio
+          <span className="text-xl font-black tracking-tight">
+            Disperser <span className="text-cyan-400">Studio</span>
           </span>
         </div>
         <button
-          className="px-4 py-2 rounded-md border border-slate-800 bg-slate-900/50 hover:bg-slate-800 text-slate-300 flex items-center gap-2 text-sm font-medium transition-all hover:border-cyan-500/50"
+          className="px-6 py-2.5 rounded-full bg-white text-black hover:bg-cyan-50 flex items-center gap-2 text-sm font-bold transition-all shadow-xl active:scale-95"
           onClick={onLoginClick}
         >
-          <Disc size={18} className="text-cyan-400" />
+          <Disc size={18} />
           Login with Discord
         </button>
       </nav>
 
       {/* Hero Section */}
-      <section className="relative pt-24 pb-32 px-8 overflow-hidden">
-        {/* Glows */}
-        <div className="absolute top-0 left-1/4 -translate-x-1/2 w-full h-full max-w-4xl bg-cyan-600/10 blur-[120px] rounded-full -z-10" />
-        <div className="absolute top-20 right-1/4 translate-x-1/2 w-full h-full max-w-4xl bg-blue-600/10 blur-[120px] rounded-full -z-10" />
-
+      <section className="relative pt-32 pb-40 px-8 overflow-hidden">
         <div className="max-w-4xl mx-auto text-center relative z-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-semibold mb-8">
-            <Zap size={14} />
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-[10px] uppercase font-black tracking-[0.2em] mb-10">
+            <Zap size={12} />
             <span>Fast, Simple and Cheap</span>
           </div>
-          <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight mb-8 leading-tight">
-            The Ultimate <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent text-glow">Roblox Asset</span> <br /> Preparation Tool
+          <h1 className="text-6xl md:text-8xl font-black tracking-tighter mb-10 leading-[0.9] text-white">
+            The Ultimate <br />
+            <span className="bg-gradient-to-r from-cyan-400 via-blue-500 to-emerald-400 bg-clip-text text-transparent">Roblox Asset</span> <br />
+            Preparation Tool
           </h1>
-          <p className="text-lg md:text-xl text-slate-400 mb-12 max-w-2xl mx-auto leading-relaxed">
+          <p className="text-xl text-slate-400 mb-14 max-w-2xl mx-auto font-medium leading-relaxed">
             Import from YouTube, edit in-browser, and bulk-upload assets to Roblox effortlessly.
             Disperser Studio handles the friction so you can focus on creating.
           </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-5">
             <button
-              className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white px-10 h-14 rounded-xl font-bold text-lg flex items-center gap-2 shadow-xl shadow-cyan-600/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+              className="bg-gradient-to-r from-cyan-500 to-blue-600 text-white px-12 h-16 rounded-2xl font-black text-lg flex items-center gap-3 transition-all hover:opacity-90 active:scale-95 shadow-2xl shadow-cyan-600/20"
               onClick={onLoginClick}
             >
               Get Started
-              <ArrowRight size={20} />
+              <ArrowRight size={22} />
             </button>
             <button
-              className="border border-slate-800 bg-slate-900/50 hover:bg-slate-800 h-14 px-10 rounded-xl text-slate-300 font-bold transition-all hover:border-slate-700"
+              className="bg-slate-900/50 hover:bg-slate-900 border border-slate-800 h-16 px-12 rounded-2xl text-white font-black text-lg transition-all active:scale-95"
             >
-              Join with Discord
+              Learn More
             </button>
           </div>
         </div>
       </section>
 
       {/* Features Grid */}
-      <section id="features" className="px-8 py-32 border-t border-white/5 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-slate-900/[0.02] via-cyan-900/10 to-slate-900/[0.02] -z-10" />
+      <section id="features" className="px-8 py-32 relative">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-20 relative">
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-blue-500/10 blur-[100px] rounded-full -z-10" />
-            <h2 className="text-4xl font-bold mb-4">Everything you need to ship assets</h2>
-            <p className="text-slate-500 max-w-lg mx-auto">Built for Roblox creators, by developers who know the pain of asset management.</p>
+            <h2 className="text-4xl font-black mb-4 tracking-tight">Everything you need to ship assets</h2>
+            <p className="text-slate-500 max-w-lg mx-auto font-medium">Built for Roblox creators, by developers who know the pain of asset management.</p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-3 gap-6">
             {[
               {
-                icon: <Youtube className="text-red-400" />,
+                icon: <Youtube className="text-cyan-400" />,
                 title: "Convert from Youtube",
                 desc: "Import high-quality audio directly via URL. No more sketchy converters or quality loss."
               },
               {
-                icon: <Zap className="text-cyan-400" />,
+                icon: <Zap className="text-emerald-400" />,
                 title: "In-Browser Studio",
                 desc: "Trim, adjust pitch, speed, and volume instantly with real-time waveform visualization."
               },
@@ -102,12 +96,12 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick }) => {
                 desc: "Monitor moderation status accurately. Never guess if your asset passed or got rejected."
               }
             ].map((f, i) => (
-              <div key={i} className="p-10 rounded-[2rem] bg-slate-900/40 border border-white/5 hover:border-cyan-500/20 transition-all hover:translate-y-[-4px] group backdrop-blur-sm">
-                <div className="w-14 h-14 rounded-2xl bg-slate-800/50 flex items-center justify-center mb-8 group-hover:bg-cyan-500/10 transition-colors">
+              <div key={i} className="p-12 rounded-[2.5rem] bg-slate-900/30 border border-slate-800/50 hover:border-cyan-500/30 transition-all group backdrop-blur-sm">
+                <div className="w-12 h-12 rounded-xl bg-slate-800/50 flex items-center justify-center mb-10 group-hover:bg-cyan-500/10 transition-colors">
                   {f.icon}
                 </div>
-                <h3 className="text-2xl font-bold mb-4">{f.title}</h3>
-                <p className="text-slate-500 leading-relaxed">
+                <h3 className="text-2xl font-black mb-4 tracking-tight">{f.title}</h3>
+                <p className="text-slate-500 font-medium leading-relaxed">
                   {f.desc}
                 </p>
               </div>
@@ -117,13 +111,14 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick }) => {
       </section>
 
       {/* CTA Section */}
-      <section className="px-8 py-32 relative">
-        <div className="max-w-5xl mx-auto rounded-[3rem] bg-gradient-to-br from-cyan-600/20 to-blue-700/20 border border-cyan-500/20 p-12 md:p-20 text-center relative overflow-hidden backdrop-blur-sm">
-          <div className="absolute -top-24 -left-24 w-64 h-64 bg-cyan-500/10 blur-[80px] rounded-full" />
-          <h2 className="text-4xl md:text-5xl font-bold mb-8">Ready to speed up your workflow?</h2>
-          <p className="text-slate-400 text-lg mb-10 max-w-xl mx-auto">Join hundreds of Roblox developers using Disperser Studio to manage their assets.</p>
+      <section className="px-8 py-40 relative">
+        <div className="max-w-5xl mx-auto rounded-[3.5rem] bg-[#0c1014] border border-slate-800 p-16 md:p-24 text-center relative overflow-hidden shadow-2xl">
+          <div className="absolute -top-32 -right-32 w-80 h-80 bg-emerald-500/5 blur-[100px] rounded-full" />
+          <div className="absolute -bottom-32 -left-32 w-80 h-80 bg-cyan-500/5 blur-[100px] rounded-full" />
+          <h2 className="text-5xl md:text-6xl font-black mb-10 tracking-tighter">Ready to speed up your workflow?</h2>
+          <p className="text-slate-400 text-xl mb-14 max-w-xl mx-auto font-medium">Join hundreds of Roblox developers using Disperser Studio to manage their assets.</p>
           <button
-            className="bg-white text-black px-12 h-14 rounded-xl font-bold text-lg hover:bg-slate-200 transition-all active:scale-95"
+            className="bg-white text-black px-16 h-16 rounded-2xl font-black text-xl hover:bg-cyan-50 transition-all active:scale-95 shadow-2xl shadow-white/10"
             onClick={onLoginClick}
           >
             Start Creating Now
@@ -132,14 +127,14 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick }) => {
       </section>
 
       {/* Footer */}
-      <footer className="px-8 py-16 border-t border-white/5 text-center relative z-10">
-        <div className="flex items-center justify-center gap-3 mb-8 opacity-50 grayscale">
-          <div className="bg-slate-700 w-8 h-8 rounded-lg flex items-center justify-center">
-            <Music size={18} className="text-white" />
+      <footer className="px-8 py-20 border-t border-slate-900 text-center relative z-10">
+        <div className="flex items-center justify-center gap-3 mb-10">
+          <div className="bg-cyan-600/10 w-8 h-8 rounded-lg flex items-center justify-center">
+            <Music size={18} className="text-cyan-400" />
           </div>
-          <span className="text-lg font-bold tracking-tight">Disperser Studio</span>
+          <span className="text-lg font-black tracking-tighter text-slate-400">Disperser Studio</span>
         </div>
-        <p className="text-slate-600 text-sm">© 2026 Disperser Studio. All rights reserved. Not affiliated with Roblox Corporation.</p>
+        <p className="text-slate-700 text-[10px] font-bold uppercase tracking-widest">© 2026 DISPERSER STUDIO. INDEPENDENT PLATFORM.</p>
       </footer>
     </div>
   );
