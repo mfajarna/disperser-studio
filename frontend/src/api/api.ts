@@ -3,6 +3,14 @@ import { supabase } from './supabase';
 
 const BASE_URL = 'http://localhost:5001';
 
+const getCurrentUserId = () => {
+  try {
+    const userStr = localStorage.getItem('disperser_user');
+    if (userStr) return JSON.parse(userStr).id;
+  } catch (e) {}
+  return null;
+};
+
 // Using Supabase for audioQueue now.
 const historyDb = localforage.createInstance({
   name: 'DisperserDB',
@@ -39,10 +47,14 @@ export const api = {
 
   // Queue Store
   async getQueue() {
+    const userId = getCurrentUserId();
+    if (!userId) return [];
+
     try {
       const { data, error } = await supabase
         .from('audio_library')
         .select('*')
+        .eq('user_id', userId)
         .order('created_at', { ascending: false });
         
       if (error) {
@@ -86,7 +98,8 @@ export const api = {
       name, 
       description, 
       status: 'pending', 
-      file_path: filePath 
+      file_path: filePath,
+      user_id: getCurrentUserId()
     };
     
     const { error: dbError } = await supabase
@@ -115,7 +128,8 @@ export const api = {
     const { error } = await supabase
       .from('audio_library')
       .update(updatePayload)
-      .eq('id', id);
+      .eq('id', id)
+      .eq('user_id', getCurrentUserId());
       
     if (error) console.error('Supabase DB update error:', error);
   },
@@ -126,6 +140,7 @@ export const api = {
       .from('audio_library')
       .select('file_path')
       .eq('id', id)
+      .eq('user_id', getCurrentUserId())
       .single();
       
     // 2. Delete from storage if exists
@@ -134,7 +149,7 @@ export const api = {
     }
     
     // 3. Delete from DB
-    await supabase.from('audio_library').delete().eq('id', id);
+    await supabase.from('audio_library').delete().eq('id', id).eq('user_id', getCurrentUserId());
   },
 
   async deleteFileOnly(id: string) {
@@ -142,11 +157,12 @@ export const api = {
       .from('audio_library')
       .select('file_path')
       .eq('id', id)
+      .eq('user_id', getCurrentUserId())
       .single();
       
     if (item?.file_path) {
       await supabase.storage.from('audios').remove([item.file_path]);
-      await supabase.from('audio_library').update({ file_path: null }).eq('id', id);
+      await supabase.from('audio_library').update({ file_path: null }).eq('id', id).eq('user_id', getCurrentUserId());
     }
   },
 
@@ -155,6 +171,7 @@ export const api = {
       .from('audio_library')
       .select('file_path')
       .eq('id', id)
+      .eq('user_id', getCurrentUserId())
       .single();
       
     if (!item?.file_path) return null;
@@ -182,6 +199,7 @@ export const api = {
       .from('audio_library')
       .select('file_path')
       .eq('id', id)
+      .eq('user_id', getCurrentUserId())
       .single();
       
     if (!item?.file_path) return null;

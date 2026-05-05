@@ -1,54 +1,89 @@
-# Task: Audio Studio Improvements & Library Enhancements
+# Task: Sistem Subscription & Privasi Data Pengguna
 
-## Objective
-Improve the **Audio Studio** import flow and enhance the **Audio Library** table with pagination, bulk actions, and optimized API polling.
+Dokumen ini berisi perencanaan implementasi sistem autentikasi Discord tingkat lanjut, sistem subscription (berlangganan), dan isolasi data pribadi. Panduan ini ditujukan untuk memandu *junior programmer* atau *AI model* dalam mengeksekusi tugas secara terstruktur.
 
-## Requirements
+---
 
-### 1. YouTube Import — 7 Minute Duration Filter
-- **Before downloading**, check the duration of the YouTube video using `yt-dlp --print %(duration)s`.
-- If the video exceeds **7 minutes (420 seconds)**, block the import and show an error message:
-  > _"This video is too long. Maximum allowed duration is 7 minutes for Roblox audio uploads."_
-- Display the detected duration in the UI so the user knows the length before importing.
+## Fase 1: Integrasi Server Discord & Sistem Role Subscription
 
-### 2. Audio Library — Pagination & Visual Polish
-- Implement **client-side pagination** on the Audio Library table.
-  - Default page size: **10 items per page**.
-  - Show page navigation controls (Previous / Next, page numbers).
-  - Display total count: _"Showing 1–10 of 47 assets"_.
-- Add a **header section** above the table with:
-  - Title and description text.
-  - Summary stats (total assets, pending, approved, rejected counts).
-- Improve the empty state with a more descriptive illustration or message.
+### Objektif
+Mengelola agar pengguna yang login masuk ke server Discord secara otomatis/semi-otomatis, serta membangun sistem Role (Free, Solo Dev, Studio, Enterprise) di website yang terikat dengan Role Discord untuk membatasi fitur.
 
-### 3. Audio Library — Bulk Upload to Roblox
-- Add a **checkbox column** to each row in the table.
-- Add a **"Select All"** checkbox in the header.
-- When one or more items are selected, show a **bulk action bar** with:
-  - "Upload X selected to Roblox" button.
-  - "Delete X selected" button (with confirmation dialog).
-- Bulk upload should process items **sequentially** (one at a time) to avoid rate-limiting.
-- Show a progress indicator during bulk upload (e.g., "Uploading 3 of 7...").
+### Tahapan Implementasi:
+1. **Auto-Join / Permintaan Masuk Server Discord:**
+   - **Update OAuth2 Scopes:** Pada frontend (`LandingPage.tsx` & `Overview.tsx`), tambahkan scope `guilds.join` pada URL login Discord (misal: `scope=identify guilds.join`).
+   - **Backend Auto-Join:** Di backend (`/api/discord/callback`), gunakan `access_token` pengguna untuk secara otomatis memasukkan mereka ke server. Gunakan endpoint Discord API: `PUT /guilds/{guild_id}/members/{user_id}`.
+   - **Fallback:** Jika auto-join gagal, pertahankan alur UI saat ini di mana user diminta untuk menekan tombol "Join Discord Server" secara manual.
+2. **Sistem Role & Pemetaan (Mapping) di Website:**
+   - Jangan melakukan *hardcode* ID Role di dalam kode agar mudah diatur ke depannya jika ada penambahan role langganan baru.
+   - **Gunakan Environment Variables:** Simpan ID Role Discord di file `.env`:
+     ```env
+     ROLE_FREE_ID=1111111111111
+     ROLE_SOLODEV_ID=222222222222
+     ROLE_STUDIO_ID=333333333333
+     ROLE_ENTERPRISE_ID=444444444444
+     ```
+   - **Buat Konfigurasi Mapping di Backend (contoh `config/roles.ts`):**
+     ```typescript
+     export const DISCORD_ROLES = {
+       FREE: process.env.ROLE_FREE_ID,
+       SOLO_DEV: process.env.ROLE_SOLODEV_ID,
+       STUDIO: process.env.ROLE_STUDIO_ID,
+       ENTERPRISE: process.env.ROLE_ENTERPRISE_ID,
+     };
+     ```
+   - Saat login (`/api/discord/callback`), backend harus membaca *roles array* milik pengguna dari Discord, mencocokkannya dengan konfigurasi di atas, lalu menyimpan `current_role` ke tabel `users` di Supabase. (Jika tidak memiliki role langganan, otomatis set ke `Free`).
+3. **Limitasi Tools di Website:**
+   - Buat React Context/Hook (misal `useSubscription()`) untuk membaca `current_role` milik pengguna.
+   - Gunakan peran ini untuk membatasi antarmuka (contoh: menyembunyikan tombol upload batch untuk akun Free).
+   - **Penting:** Validasi limitasi harus tetap dilakukan di Backend untuk mencegah user mengakali (bypass) frontend.
 
-### 4. Roblox Status Polling — Reduce Frequency
-- Change the polling interval from **4 seconds** to **30 seconds**.
-- This reduces unnecessary API calls to Roblox and avoids potential rate-limiting.
-- The background refresh interval should also be adjusted to **30 seconds**.
+---
 
-### 5. Bug Fix: Audio Library Upload Stuck Issue
-- **Issue:** The Audio Library page gets stuck/freezes when an audio file is being uploaded to Roblox.
-- **Task:** Investigate and fix the state management or background processing logic during the upload process in the Audio Library feature to ensure the UI remains responsive and does not lock up the page.
+## Fase 2: Sistem Kedaluwarsa (Expired) Subscription
 
-## Technical Constraints
-- Use **Vite + React + TypeScript**.
-- Styling uses **Tailwind CSS** and **shadcn/ui** components.
-- Maintain the existing "Cyan & Blue" dark theme.
-- Audio duration check should be done on the **backend** via `yt-dlp`.
+### Objektif
+Sistem otomatis yang menangani ketika masa berlangganan pengguna habis, maka hak akses Role premium-nya akan dicabut dan kembali menjadi Free.
 
-## Acceptance Criteria
-- [ ] YouTube imports over 7 minutes are blocked with a clear error message.
-- [ ] Audio Library table has working pagination (10 per page).
-- [ ] Audio Library header shows descriptive text and asset statistics.
-- [ ] Users can select multiple assets and bulk upload/delete them.
-- [ ] Roblox polling interval is set to 30 seconds instead of 4 seconds.
-- [ ] Uploading audio to Roblox from the Audio Library no longer causes the page to get stuck.
+### Tahapan Implementasi:
+1. **Pembaruan Skema Database:**
+   - Tambahkan kolom `subscription_expires_at` (tipe `timestamp`) di tabel `users` pada database Supabase.
+2. **Mekanisme Perpanjangan Langganan:**
+   - Buat endpoint backend baru (misal: `POST /api/subscription/extend`) yang berfungsi menambah masa aktif.
+   - Endpoint ini bertugas mengatur `subscription_expires_at` menjadi waktu saat ini + 30 hari (atau sesuai paket) dan mengupdate `current_role`.
+   - Di masa depan, endpoint ini akan dipanggil oleh *Webhook* dari Payment Gateway (seperti Midtrans/UniPin). Untuk saat ini, bisa dibuatkan validasi API khusus admin untuk ujicoba.
+3. **Mekanisme Kedaluwarsa Otomatis (Downgrade):**
+   - **Pengecekan Pasif (Middleware/Check):** Setiap kali user mengakses backend (misal saat upload audio/request data), cek apakah `subscription_expires_at` sudah lebih kecil dari `Date.now()`.
+   - Jika sudah kedaluwarsa:
+     1. Ubah `current_role` menjadi `Free` di Supabase.
+     2. Gunakan Bot Token Discord untuk melakukan request `DELETE /guilds/{guild_id}/members/{user_id}/roles/{premium_role_id}` untuk mencabut role berbayar dari Discord mereka.
+     3. Kembalikan respons error/informasi ke frontend bahwa "Subscription telah habis".
+
+---
+
+## Fase 3: Isolasi Data / Kepemilikan Pribadi
+
+### Objektif
+Mengubah sistem penyimpanan dari "Global/Publik" menjadi "Pribadi", sehingga setiap user hanya bisa melihat, mengedit, dan mengupload aset miliknya sendiri.
+
+### Tahapan Implementasi:
+1. **Perubahan Skema Database (`audio_library`):**
+   - Tambahkan kolom `user_id` (tipe `text`) ke tabel `audio_library` di Supabase. Kolom ini akan menyimpan ID Discord dari pengguna yang membuat aset tersebut.
+   - Jadikan kolom ini `NOT NULL` agar tidak ada aset tanpa pemilik ("orphan").
+2. **Pembaruan API Frontend (`api.ts`):**
+   - Ubah fungsi `addToQueue()` agar mengirim `user.id` dari localStorage setiap kali membuat record baru.
+   - Ubah fungsi `getQueue()` agar hanya melakukan *fetch* data milik sendiri dengan menambahkan filter:
+     ```typescript
+     .eq('user_id', currentUser.id)
+     ```
+3. **Keamanan (Security Check):**
+   - Pastikan semua aksi modifikasi (Edit/Upload ke Roblox/Delete) memvalidasi `user_id`. Jika menggunakan koneksi langsung ke Supabase dari Frontend, sangat disarankan mengaktifkan **Row Level Security (RLS)** di Supabase:
+     - Buat Policy di Supabase: Aset hanya bisa di-SELECT, INSERT, UPDATE, DELETE jika `user_id` sama dengan ID user yang sedang mengakses.
+   - Jika modifikasi dikontrol melalui backend Express, pastikan endpoint melakukan query `WHERE id = {assetId} AND user_id = {requesting_user_id}` sebelum menghapus atau mengubah data.
+
+---
+
+### Urutan Prioritas Pengerjaan (Rekomendasi untuk Junior/AI):
+1. **Kerjakan Fase 3 (Isolasi Data) terlebih dahulu.** Ini adalah langkah paling kritis agar pengguna tidak secara tidak sengaja melihat atau mengubah file pengguna lain.
+2. **Kerjakan Fase 1 (Sistem Role Discord).** Bangun fondasi autentikasi dan hubungkan Database (Supabase) dengan Role dari server.
+3. **Kerjakan Fase 2 (Sistem Expired).** Tambahkan logika tanggal kedaluwarsa setelah sistem role berjalan dengan stabil.

@@ -319,56 +319,94 @@ app.post('/api/discord/callback', async (req, res) => {
     const userId = userData.id;
     console.log(`📡 Discord Login: ${userData.username} (${userId})`);
 
-    // 2.5 Save/Update User in Supabase
-    const { error: dbError } = await supabase
+    // 2.5 Role Management & Auto-Join
+    const guildId = process.env.DISCORD_GUILD_ID;
+    const botToken = process.env.DISCORD_BOT_TOKEN;
+    
+    const ROLE_FREE_ID = process.env.ROLE_FREE_ID;
+    const ROLE_SOLODEV_ID = process.env.ROLE_SOLODEV_ID;
+    const ROLE_STUDIO_ID = process.env.ROLE_STUDIO_ID;
+    const ROLE_ENTERPRISE_ID = process.env.ROLE_ENTERPRISE_ID;
+
+    if (!guildId || !botToken) {
+      console.error('❌ Missing Discord configuration in .env');
+      return res.json({ success: true, user: userData, roleGiven: false, error: 'Server misconfiguration' });
+    }
+
+    let memberData = null;
+    const memberRes = await fetch(`https://discord.com/api/v10/guilds/${guildId}/members/${userId}`, {
+      headers: { Authorization: `Bot ${botToken}` }
+    });
+
+    if (memberRes.ok) {
+      memberData = await memberRes.json();
+    } else {
+      console.log(`🏷️ User not in guild, attempting auto-join...`);
+      const addRes = await fetch(`https://discord.com/api/v10/guilds/${guildId}/members/${userId}`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bot ${botToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          access_token: accessToken,
+          roles: ROLE_FREE_ID ? [ROLE_FREE_ID] : []
+        })
+      });
+      if (addRes.ok) {
+        memberData = await addRes.json();
+      } else {
+        console.error('❌ Failed to auto-join guild:', await addRes.text());
+      }
+    }
+
+    // Determine Role
+    let currentRole = 'Free';
+    if (memberData && memberData.roles) {
+      if (ROLE_ENTERPRISE_ID && memberData.roles.includes(ROLE_ENTERPRISE_ID)) currentRole = 'Enterprise';
+      else if (ROLE_STUDIO_ID && memberData.roles.includes(ROLE_STUDIO_ID)) currentRole = 'Studio';
+      else if (ROLE_SOLODEV_ID && memberData.roles.includes(ROLE_SOLODEV_ID)) currentRole = 'Solo Dev';
+      else if (ROLE_FREE_ID && memberData.roles.includes(ROLE_FREE_ID)) currentRole = 'Free';
+    }
+
+    // Fetch existing user to check expiration
+    const { data: existingUser } = await supabase.from('users').select('subscription_expires_at').eq('id', userId).single();
+    
+    let isExpired = false;
+    if (existingUser && existingUser.subscription_expires_at) {
+      const expiresAt = new Date(existingUser.subscription_expires_at).getTime();
+      if (expiresAt < Date.now() && currentRole !== 'Free') {
+        currentRole = 'Free';
+        isExpired = true;
+        // Optionally remove Discord role here, for now we just downgrade in DB
+        console.log(`⚠️ Subscription expired for ${userId}. Downgrading to Free.`);
+      }
+    }
+
+    // 3. Save/Update User in Supabase
+    const { data: dbUser, error: dbError } = await supabase
       .from('users')
       .upsert({
         id: userId,
         username: userData.username,
         avatar: userData.avatar,
+        current_role: currentRole,
         last_login: new Date().toISOString()
-      }, { onConflict: 'id' });
+      }, { onConflict: 'id' })
+      .select('current_role, subscription_expires_at')
+      .single();
 
     if (dbError) {
       console.error('❌ Supabase User Sync Error:', dbError);
-      // We continue even if DB sync fails, but log it
     }
 
-    // 3. Give Role (Using Bot Token)
-    const guildId = process.env.DISCORD_GUILD_ID;
-    const roleId = process.env.DISCORD_ROLE_ID;
-    const botToken = process.env.DISCORD_BOT_TOKEN;
-
-    if (!guildId || !roleId || !botToken) {
-      console.error('❌ Missing Discord configuration in .env');
-      return res.json({ success: true, user: userData, roleGiven: false, error: 'Server misconfiguration' });
-    }
-
-    const roleUrl = `https://discord.com/api/v10/guilds/${guildId}/members/${userId}/roles/${roleId}`;
-    
-    console.log(`🏷️ Attempting to give role ${roleId} in guild ${guildId} to user ${userId}`);
-
-    const roleResponse = await fetch(roleUrl, {
-      method: 'PUT',
-      headers: {
-        Authorization: `Bot ${botToken}`,
-        'Content-Type': 'application/json'
-      }
+    console.log(`✅ Login successful for ${userData.username} (Role: ${currentRole})`);
+    res.json({ 
+      success: true, 
+      user: { ...userData, current_role: currentRole, subscription_expires_at: dbUser?.subscription_expires_at }, 
+      roleGiven: !!memberData,
+      isExpired
     });
-
-    if (!roleResponse.ok) {
-      const errorData = await roleResponse.json().catch(() => ({}));
-      console.error('❌ Failed to give role:', errorData);
-      return res.json({ 
-        success: true, 
-        user: userData, 
-        roleGiven: false, 
-        error: 'Could not give role. Make sure you are in the server!' 
-      });
-    }
-
-    console.log(`✅ Role successfully given to ${userData.username}`);
-    res.json({ success: true, user: userData, roleGiven: true });
 
   } catch (error) {
     console.error('❌ Discord Auth Error:', error);
@@ -380,7 +418,7 @@ app.post('/api/discord/callback', async (req, res) => {
 app.post('/api/discord/verify-role', async (req, res) => {
   const { userId } = req.body;
   const guildId = process.env.DISCORD_GUILD_ID;
-  const roleId = process.env.DISCORD_ROLE_ID;
+  const roleId = process.env.ROLE_FREE_ID || process.env.DISCORD_ROLE_ID;
   const botToken = process.env.DISCORD_BOT_TOKEN;
 
   if (!userId || !guildId || !roleId || !botToken) {
@@ -403,6 +441,42 @@ app.post('/api/discord/verify-role', async (req, res) => {
 
     res.json({ success: true });
   } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// --- Subscription API Endpoints ---
+
+app.post('/api/subscription/extend', async (req, res) => {
+  const { userId, daysToAdd, roleName } = req.body;
+
+  if (!userId || !daysToAdd || !roleName) {
+    return res.status(400).json({ success: false, error: 'Missing parameters' });
+  }
+
+  try {
+    const { data: existingUser } = await supabase.from('users').select('subscription_expires_at').eq('id', userId).single();
+    
+    let baseDate = new Date();
+    if (existingUser && existingUser.subscription_expires_at) {
+      const currentExpiry = new Date(existingUser.subscription_expires_at);
+      if (currentExpiry > baseDate) {
+        baseDate = currentExpiry;
+      }
+    }
+
+    const newExpiry = new Date(baseDate.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
+
+    const { error } = await supabase.from('users').update({
+      current_role: roleName,
+      subscription_expires_at: newExpiry.toISOString()
+    }).eq('id', userId);
+
+    if (error) throw error;
+
+    res.json({ success: true, newExpiry: newExpiry.toISOString(), role: roleName });
+  } catch (error: any) {
+    console.error('Subscription Extension Error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
