@@ -63,7 +63,7 @@ export const api = {
     }
   },
 
-  async addToQueue(name: string, description: string, buffer: Uint8Array) {
+  async addToQueue(name: string, description: string, buffer: Uint8Array | Blob | ArrayBuffer) {
     const id = crypto.randomUUID();
     const filePath = `audio_${id}.wav`;
     
@@ -137,7 +137,20 @@ export const api = {
     await supabase.from('audio_library').delete().eq('id', id);
   },
 
-  async getItemBuffer(id: string) {
+  async deleteFileOnly(id: string) {
+    const { data: item } = await supabase
+      .from('audio_library')
+      .select('file_path')
+      .eq('id', id)
+      .single();
+      
+    if (item?.file_path) {
+      await supabase.storage.from('audios').remove([item.file_path]);
+      await supabase.from('audio_library').update({ file_path: null }).eq('id', id);
+    }
+  },
+
+  async getItemBuffer(id: string): Promise<Blob | null> {
     const { data: item } = await supabase
       .from('audio_library')
       .select('file_path')
@@ -145,18 +158,44 @@ export const api = {
       .single();
       
     if (!item?.file_path) return null;
-    
-    const { data, error } = await supabase.storage
+    const { data: urlData, error: urlError } = await supabase.storage
       .from('audios')
-      .download(item.file_path);
-      
-    if (error || !data) {
-      console.error('Supabase storage download error:', error);
+      .createSignedUrl(item.file_path, 60);
+
+    if (urlError || !urlData?.signedUrl) {
+      console.error('Supabase storage signed url error:', urlError);
       return null;
     }
-    
-    const arrayBuffer = await data.arrayBuffer();
-    return new Uint8Array(arrayBuffer);
+
+    try {
+      const res = await fetch(urlData.signedUrl);
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+      return await res.blob();
+    } catch (e) {
+      console.error('Error fetching Blob from signed URL:', e);
+      return null;
+    }
+  },
+
+  async getSignedUrl(id: string) {
+    const { data: item } = await supabase
+      .from('audio_library')
+      .select('file_path')
+      .eq('id', id)
+      .single();
+      
+    if (!item?.file_path) return null;
+
+    const { data, error } = await supabase.storage
+      .from('audios')
+      .createSignedUrl(item.file_path, 300); // 5 mins
+
+    if (error || !data) {
+      console.error('Supabase signed URL error:', error);
+      return null;
+    }
+
+    return data.signedUrl;
   },
 
   // Remote Services
@@ -170,45 +209,58 @@ export const api = {
       const errorData = await res.json().catch(() => ({}));
       throw new Error(errorData.error || 'Download failed');
     }
-    
-    // Debug headers
-    const headers: any = {};
-    res.headers.forEach((val, key) => { headers[key] = val; });
-    console.log('Download headers:', headers);
-
-    let title = res.headers.get('X-Audio-Title');
-    if (title) {
-      title = decodeURIComponent(title);
-    } else {
-      // Fallback: try to get video ID from URL
-      try {
-        const urlObj = new URL(url);
-        const videoId = urlObj.searchParams.get('v') || url.split('/').pop();
-        title = `YouTube Audio (${videoId})`;
-      } catch {
-        title = 'YouTube Audio';
-      }
-    }
-
+    const title = decodeURIComponent(res.headers.get('X-Audio-Title') || 'audio');
     const buffer = await res.arrayBuffer();
     return { title, buffer: new Uint8Array(buffer) };
   },
 
-  async robloxUpload(name: string, desc: string, buffer: Uint8Array) {
+  async robloxUpload(name: string, desc: string, audioBlob: Blob) {
     const key = localStorage.getItem('disperser_key');
     const userId = localStorage.getItem('disperser_user_id');
-    const blob = new Blob([buffer], { type: 'audio/wav' });
     const form = new FormData();
     form.append('apiKey', key || '');
     form.append('userId', userId || '');
     form.append('name', name);
     form.append('description', desc);
-    form.append('file', blob, 'audio.wav');
+    form.append('file', audioBlob, 'audio.wav');
 
     const res = await fetch(`${BASE_URL}/api/roblox/upload`, {
       method: 'POST',
       body: form
     });
+    return await res.json();
+  },
+
+  async robloxUploadFromUrl(name: string, desc: string, fileUrl: string) {
+    const apiKey = localStorage.getItem('disperser_key');
+    const userId = localStorage.getItem('disperser_user_id');
+    
+    const res = await fetch(`${BASE_URL}/api/roblox/upload-from-url`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        apiKey,
+        userId,
+        name,
+        description: desc,
+        fileUrl
+      })
+    });
+    
+    if (!res.ok) {
+      const text = await res.text();
+      let msg = `Server Error (${res.status})`;
+      try {
+        const json = JSON.parse(text);
+        msg = json.error || json.message || msg;
+      } catch (e) {
+        if (text.includes('<!DOCTYPE html>')) {
+          msg = "Backend route not found (404). Please ensure the backend is restarted with the latest changes.";
+        }
+      }
+      throw new Error(msg);
+    }
+    
     return await res.json();
   },
 
