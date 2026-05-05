@@ -36,10 +36,10 @@ export default function DiscordCallback() {
         if (data.success) {
           setStatus('success');
           setUserData(data.user);
-          
+
           // Save session
           localStorage.setItem('disperser_user', JSON.stringify(data.user));
-          
+
           if (data.roleGiven) {
             setRoleStatus('success');
             setMessage(`Successfully verified! You have been given the verified role in our server.`);
@@ -113,7 +113,7 @@ export default function DiscordCallback() {
                   <MessageSquare size={32} className="text-cyan-400" />
                 )}
               </div>
-              
+
               <h2 className="text-xl font-bold text-white mb-2">
                 {roleStatus === 'success' ? 'Verification Successful!' : 'Join Our Community'}
               </h2>
@@ -122,7 +122,7 @@ export default function DiscordCallback() {
                 <div className="bg-slate-950/50 p-3 rounded-lg border border-slate-800 mb-4 flex items-center gap-3 w-full">
                   <div className="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center overflow-hidden border border-slate-800">
                     {userData.avatar ? (
-                       <img src={`https://cdn.discordapp.com/avatars/${userData.id}/${userData.avatar}.png`} alt="avatar" />
+                      <img src={`https://cdn.discordapp.com/avatars/${userData.id}/${userData.avatar}.png`} alt="avatar" />
                     ) : (
                       <MessageSquare size={20} className="text-indigo-400" />
                     )}
@@ -140,13 +140,13 @@ export default function DiscordCallback() {
 
               {roleStatus === 'not_in_server' ? (
                 <div className="space-y-3 w-full">
-                  <Button 
-                    onClick={() => window.open('https://discord.gg/your-invite-link', '_blank')}
+                  <Button
+                    onClick={() => window.open('https://discord.gg/2dRtqgmKPR', '_blank')}
                     className="w-full bg-[#5865F2] hover:bg-[#4752C4] text-white font-bold h-12"
                   >
                     1. Join Discord Server
                   </Button>
-                  <Button 
+                  <Button
                     onClick={handleRetryVerify}
                     disabled={isVerifyingAgain}
                     className="w-full bg-white text-black hover:bg-slate-100 font-bold h-12"
@@ -158,7 +158,7 @@ export default function DiscordCallback() {
                   </Button>
                 </div>
               ) : (
-                <Button 
+                <Button
                   onClick={() => window.location.href = '/dashboard'}
                   className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 font-bold h-12"
                 >
@@ -175,7 +175,7 @@ export default function DiscordCallback() {
               </div>
               <h2 className="text-xl font-bold text-white mb-2">Verification Failed</h2>
               <p className="text-slate-400 text-sm mb-8">{message}</p>
-              <Button 
+              <Button
                 onClick={() => window.location.href = '/login'}
                 variant="outline"
                 className="w-full border-slate-800 text-slate-300 hover:bg-slate-800 font-bold h-12"
