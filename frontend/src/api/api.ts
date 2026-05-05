@@ -1,12 +1,9 @@
 import localforage from 'localforage';
+import { supabase } from './supabase';
 
 const BASE_URL = 'http://localhost:5001';
 
-const db = localforage.createInstance({
-  name: 'DisperserDB',
-  storeName: 'audioQueue'
-});
-
+// Using Supabase for audioQueue now.
 const historyDb = localforage.createInstance({
   name: 'DisperserDB',
   storeName: 'youtubeHistory'
@@ -42,30 +39,124 @@ export const api = {
 
   // Queue Store
   async getQueue() {
-    const list: any[] = [];
-    await db.iterate((val) => { list.push(val); });
-    return list.sort((a, b) => b.createdAt - a.createdAt);
+    try {
+      const { data, error } = await supabase
+        .from('audio_library')
+        .select('*')
+        .order('created_at', { ascending: false });
+        
+      if (error) {
+        console.error('Supabase fetch error:', error);
+        return [];
+      }
+      
+      return data.map(item => ({
+        ...item,
+        createdAt: item.created_at,
+        assetId: item.asset_id,
+        operationPath: item.operation_path,
+        errorMessage: item.error_message,
+      }));
+    } catch (e) {
+      console.error('Failed to fetch from Supabase. Is the URL correct?', e);
+      return [];
+    }
   },
 
   async addToQueue(name: string, description: string, buffer: Uint8Array) {
-    const id = Math.random().toString(36).substring(7);
-    const item = { id, name, description, buffer, status: 'pending', createdAt: Date.now() };
-    await db.setItem(id, item);
-    return item;
+    const id = crypto.randomUUID();
+    const filePath = `audio_${id}.wav`;
+    
+    // Upload file to Supabase Storage
+    const { error: uploadError } = await supabase.storage
+      .from('audios')
+      .upload(filePath, buffer, {
+        contentType: 'audio/wav',
+        upsert: true
+      });
+
+    if (uploadError) {
+      console.error('Supabase storage upload error:', uploadError);
+      throw uploadError;
+    }
+
+    // Insert metadata to Supabase DB
+    const item = { 
+      id, 
+      name, 
+      description, 
+      status: 'pending', 
+      file_path: filePath 
+    };
+    
+    const { error: dbError } = await supabase
+      .from('audio_library')
+      .insert([item]);
+      
+    if (dbError) {
+      console.error('Supabase DB insert error:', dbError);
+      throw dbError;
+    }
+    
+    return { ...item, createdAt: Date.now() }; // approximate createdAt for immediate UI usage
   },
 
   async updateItem(id: string, data: any) {
-    const item: any = await db.getItem(id);
-    if (item) await db.setItem(id, { ...item, ...data });
+    const updatePayload: any = { ...data };
+    if (data.assetId !== undefined) updatePayload.asset_id = data.assetId;
+    if (data.operationPath !== undefined) updatePayload.operation_path = data.operationPath;
+    if (data.errorMessage !== undefined) updatePayload.error_message = data.errorMessage;
+    
+    delete updatePayload.assetId;
+    delete updatePayload.operationPath;
+    delete updatePayload.errorMessage;
+    delete updatePayload.createdAt;
+
+    const { error } = await supabase
+      .from('audio_library')
+      .update(updatePayload)
+      .eq('id', id);
+      
+    if (error) console.error('Supabase DB update error:', error);
   },
 
   async deleteItem(id: string) {
-    await db.removeItem(id);
+    // 1. Get file_path
+    const { data: item } = await supabase
+      .from('audio_library')
+      .select('file_path')
+      .eq('id', id)
+      .single();
+      
+    // 2. Delete from storage if exists
+    if (item?.file_path) {
+      await supabase.storage.from('audios').remove([item.file_path]);
+    }
+    
+    // 3. Delete from DB
+    await supabase.from('audio_library').delete().eq('id', id);
   },
 
   async getItemBuffer(id: string) {
-    const item: any = await db.getItem(id);
-    return item?.buffer;
+    const { data: item } = await supabase
+      .from('audio_library')
+      .select('file_path')
+      .eq('id', id)
+      .single();
+      
+    if (!item?.file_path) return null;
+    
+    const { data, error } = await supabase.storage
+      .from('audios')
+      .download(item.file_path);
+      
+    if (error || !data) {
+      console.error('Supabase storage download error:', error);
+      return null;
+    }
+    
+    const arrayBuffer = await data.arrayBuffer();
+    return new Uint8Array(arrayBuffer);
   },
 
   // Remote Services

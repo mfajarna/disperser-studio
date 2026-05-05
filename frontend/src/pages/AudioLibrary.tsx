@@ -1,23 +1,23 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { api } from '../api/api';
 import { usePollContext } from '../context/PollContext';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { 
-  Trash2, 
-  CloudUpload, 
-  Copy, 
-  AlertCircle, 
-  Clock, 
+import {
+  Trash2,
+  CloudUpload,
+  Copy,
+  AlertCircle,
+  Clock,
   CheckCircle2,
   RefreshCw,
   Search,
@@ -44,7 +44,7 @@ import {
 } from '@/components/ui/alert-dialog';
 
 export default function AudioLibrary() {
-  const { items, loading, refresh, startPoll } = usePollContext();
+  const { items, loading, refresh, startPoll, logs, addLog, clearLogs } = usePollContext();
   const [search, setSearch] = useState('');
   const [uploadingIds, setUploadingIds] = useState<Set<string>>(new Set());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -56,7 +56,7 @@ export default function AudioLibrary() {
   const itemsPerPage = 10;
 
   const filteredItems = useMemo(() => {
-    return items.filter(item => 
+    return items.filter(item =>
       item.name.toLowerCase().includes(search.toLowerCase())
     );
   }, [items, search]);
@@ -80,27 +80,32 @@ export default function AudioLibrary() {
   const handleUpload = async (id: string) => {
     const item = items.find(i => i.id === id);
     if (!item) return;
-    
+
     setUploadingIds(prev => new Set(prev).add(id));
     await api.updateItem(id, { status: 'uploading', errorMessage: null });
+    addLog(`[Item:${id}] Starting upload process for "${item.name}"...`, 'info');
     refresh();
-    
+
     try {
+      addLog(`[Item:${id}] Fetching audio buffer...`, 'info');
       const buffer = await api.getItemBuffer(id);
       if (!buffer) throw new Error('Audio buffer not found');
-      
+
+      addLog(`[Item:${id}] Uploading to Roblox API...`, 'info');
       const res = await api.robloxUpload(item.name, item.description || 'Uploaded via Disperser Studio', buffer);
-      
+
       if (res.success && res.operation?.path) {
+        addLog(`[Item:${id}] Upload successful! Operation Path: ${res.operation.path}`, 'success');
         await api.updateItem(id, { status: 'processing', operationPath: res.operation.path });
         startPoll(id, res.operation.path);
       } else {
         throw new Error(res.error || 'Upload failed');
       }
     } catch (e: any) {
+      addLog(`[Item:${id}] Upload failed: ${e.message}`, 'error');
       await api.updateItem(id, { status: 'error', errorMessage: e.message });
     }
-    
+
     setUploadingIds(prev => { const n = new Set(prev); n.delete(id); return n; });
     refresh();
   };
@@ -216,12 +221,12 @@ export default function AudioLibrary() {
             <h2 className="text-xl font-bold text-white">Audio Assets</h2>
             <p className="text-sm text-slate-500">Manage and track your audio library.</p>
           </div>
-          
+
           <div className="flex items-center gap-3">
             <div className="relative flex-1 md:w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
-              <Input 
-                placeholder="Search assets..." 
+              <Input
+                placeholder="Search assets..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-9 bg-slate-950 border-slate-800 focus-visible:ring-cyan-500/50"
@@ -239,7 +244,7 @@ export default function AudioLibrary() {
             <TableHeader className="bg-slate-900/60">
               <TableRow className="border-slate-800">
                 <TableHead className="w-12 px-4">
-                  <Checkbox 
+                  <Checkbox
                     checked={selectedIds.size > 0 && selectedIds.size === paginatedItems.length}
                     onCheckedChange={toggleSelectAll}
                   />
@@ -269,20 +274,20 @@ export default function AudioLibrary() {
                   return (
                     <TableRow key={item.id} className={`border-slate-800 hover:bg-slate-800/30 transition-colors ${isSelected ? 'bg-cyan-500/5' : ''}`}>
                       <TableCell className="px-4">
-                        <Checkbox 
+                        <Checkbox
                           checked={isSelected}
                           onCheckedChange={() => toggleSelect(item.id)}
                         />
                       </TableCell>
                       <TableCell className="py-4">
                         <div className="font-semibold text-white truncate max-w-[240px]">{item.name}</div>
-                        <div className="text-[10px] text-slate-500 mt-1 flex items-center gap-1">
+                        <div className="text-[12px] text-slate-500 mt-1 flex items-center gap-1">
                           <Clock size={10} /> {new Date(item.createdAt).toLocaleDateString()}
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge 
-                          variant="secondary" 
+                        <Badge
+                          variant="secondary"
                           className={`gap-1.5 text-[10px] py-0 h-5 ${statusCfg.color}`}
                         >
                           {statusCfg.icon}
@@ -291,9 +296,9 @@ export default function AudioLibrary() {
                       </TableCell>
                       <TableCell>
                         {item.assetId ? (
-                          <button 
+                          <button
                             onClick={() => navigator.clipboard.writeText(item.assetId)}
-                            className="group flex items-center gap-2 font-mono text-[10px] text-slate-400 hover:text-cyan-400 transition-colors"
+                            className="group flex items-center gap-2 font-mono text-[12px] text-slate-400 hover:text-cyan-400 transition-colors"
                           >
                             <code>{item.assetId}</code>
                             <Copy size={10} className="opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -305,7 +310,7 @@ export default function AudioLibrary() {
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                           {(item.status === 'pending' || (item.status === 'error' && !item.errorMessage?.includes('Rejected'))) && (
-                            <Button 
+                            <Button
                               size="sm"
                               onClick={() => handleUpload(item.id)}
                               disabled={isUploading || isBulkUploading}
@@ -318,9 +323,9 @@ export default function AudioLibrary() {
 
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
-                              <Button 
-                                size="sm" 
-                                variant="ghost" 
+                              <Button
+                                size="sm"
+                                variant="ghost"
                                 className="h-7 px-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10"
                               >
                                 <Trash2 size={14} />
@@ -352,18 +357,18 @@ export default function AudioLibrary() {
           <p className="text-xs text-slate-500">
             Showing <span className="text-white font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="text-white font-medium">{Math.min(currentPage * itemsPerPage, filteredItems.length)}</span> of <span className="text-white font-medium">{filteredItems.length}</span> assets
           </p>
-          
+
           <div className="flex items-center gap-1">
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               disabled={currentPage === 1}
               onClick={() => setCurrentPage(prev => prev - 1)}
               className="bg-slate-950 border-slate-800 text-slate-400 h-8 px-2"
             >
               <ChevronLeft size={16} />
             </Button>
-            
+
             {Array.from({ length: totalPages }).map((_, i) => (
               <Button
                 key={i + 1}
@@ -376,9 +381,9 @@ export default function AudioLibrary() {
               </Button>
             )).slice(Math.max(0, currentPage - 3), Math.min(totalPages, currentPage + 2))}
 
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               disabled={currentPage === totalPages || totalPages === 0}
               onClick={() => setCurrentPage(prev => prev + 1)}
               className="bg-slate-950 border-slate-800 text-slate-400 h-8 px-2"
@@ -404,7 +409,7 @@ export default function AudioLibrary() {
             </div>
 
             <div className="flex items-center gap-2">
-              <Button 
+              <Button
                 onClick={handleBulkUpload}
                 disabled={isBulkUploading}
                 className="bg-cyan-600 hover:bg-cyan-500 text-white text-xs px-4 h-10 gap-2"
@@ -440,9 +445,9 @@ export default function AudioLibrary() {
                 </AlertDialogContent>
               </AlertDialog>
 
-              <Button 
-                variant="ghost" 
-                size="icon" 
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => setSelectedIds(new Set())}
                 className="h-8 w-8 text-slate-500 hover:text-white"
               >
@@ -452,6 +457,44 @@ export default function AudioLibrary() {
           </div>
         </div>
       )}
+
+      {/* Activity Logs Section */}
+      <div className="mt-8 rounded-lg border border-slate-800 bg-slate-900/50 backdrop-blur-sm p-4">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></div>
+            <h3 className="text-sm font-semibold text-white">Activity Logs</h3>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearLogs}
+            className="h-7 text-xs text-slate-400 hover:text-white"
+          >
+            Clear Logs
+          </Button>
+        </div>
+        <div className="bg-black/40 rounded border border-slate-800 p-3 h-48 overflow-y-auto font-mono text-[11px] leading-relaxed flex flex-col gap-1">
+          {logs.length === 0 ? (
+            <span className="text-slate-600 italic">No recent activity...</span>
+          ) : (
+            logs.map((log) => {
+              const time = new Date(log.timestamp).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+              let color = 'text-slate-300';
+              if (log.type === 'error') color = 'text-red-400';
+              if (log.type === 'success') color = 'text-emerald-400';
+              if (log.type === 'warning') color = 'text-amber-400';
+
+              return (
+                <div key={log.id} className={`${color}`}>
+                  <span className="text-slate-600 mr-2">[{time}]</span>
+                  {log.message}
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
     </div>
   );
 }

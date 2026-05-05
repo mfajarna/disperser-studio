@@ -1,11 +1,21 @@
 import React, { createContext, useContext, useRef, useCallback, useEffect, useState } from 'react';
 import { api } from '../api/api';
 
+export interface LogEntry {
+  id: string;
+  timestamp: number;
+  message: string;
+  type: 'info' | 'success' | 'error' | 'warning';
+}
+
 interface PollContextType {
   startPoll: (id: string, opPath: string) => void;
   refresh: () => Promise<void>;
   items: any[];
   loading: boolean;
+  logs: LogEntry[];
+  addLog: (message: string, type?: LogEntry['type']) => void;
+  clearLogs: () => void;
 }
 
 const PollContext = createContext<PollContextType | null>(null);
@@ -19,7 +29,19 @@ export const usePollContext = () => {
 export const PollProvider = ({ children }: { children: React.ReactNode }) => {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
   const polls = useRef<Record<string, any>>({});
+
+  const addLog = useCallback((message: string, type: LogEntry['type'] = 'info') => {
+    setLogs(prev => [...prev, {
+      id: Date.now().toString() + Math.random().toString(),
+      timestamp: Date.now(),
+      message,
+      type
+    }].slice(-50)); // Keep last 50 logs
+  }, []);
+
+  const clearLogs = useCallback(() => setLogs([]), []);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -39,14 +61,14 @@ export const PollProvider = ({ children }: { children: React.ReactNode }) => {
     if (polls.current[id]) return;
     const opId = opPath.split('/').pop();
 
-    console.log(`🔄 [Poll:${id}] Starting — operation: ${opId}`);
+    addLog(`[Item:${id}] Starting moderation poll for operation: ${opId}`, 'info');
 
     polls.current[id] = setInterval(async () => {
       try {
         const res = await api.checkOperation(opId!);
         
         if (!res.success) {
-          console.error(`❌ [Poll:${id}] API call failed:`, res.error);
+          addLog(`[Item:${id}] API call failed: ${res.error}`, 'error');
           return;
         }
 
@@ -62,12 +84,12 @@ export const PollProvider = ({ children }: { children: React.ReactNode }) => {
         const isDone = op.done === true || !!op.response || !!assetId;
 
         if (!isDone) {
-          console.log(`⏳ [Poll:${id}] Operation not done yet...`);
+          // Silent log to avoid spam
           return;
         }
 
         if (op.error) {
-          console.error(`❌ [Poll:${id}] Operation error:`, op.error);
+          addLog(`[Item:${id}] Operation error: ${op.error.message || JSON.stringify(op.error)}`, 'error');
           clearInterval(polls.current[id]);
           delete polls.current[id];
           await api.updateItem(id, { status: 'error', errorMessage: op.error.message || 'Upload operation failed' });
@@ -76,7 +98,7 @@ export const PollProvider = ({ children }: { children: React.ReactNode }) => {
         }
 
         if (!assetId) {
-          console.log(`⚠️ [Poll:${id}] Done but no assetId.`);
+          addLog(`[Item:${id}] Done but no assetId found in response.`, 'warning');
           clearInterval(polls.current[id]);
           delete polls.current[id];
           await api.updateItem(id, { status: 'success' });
@@ -85,12 +107,12 @@ export const PollProvider = ({ children }: { children: React.ReactNode }) => {
         }
 
         // Check moderation
-        console.log(`🔍 [Poll:${id}] Checking moderation for asset: ${assetId}`);
+        addLog(`[Item:${id}] Checking moderation status for asset: ${assetId}`, 'info');
         const meta = await api.getAssetMeta(assetId);
         const robloxData = meta?.metadata || meta;
         const moderationState = (robloxData?.moderationResult?.moderationState || '').trim().toLowerCase();
 
-        console.log(`🏷️ [Poll:${id}] Moderation state: "${moderationState}"`);
+        addLog(`[Item:${id}] Moderation state: "${moderationState}"`, 'info');
 
         if (moderationState === 'rejected') {
           clearInterval(polls.current[id]);
@@ -105,17 +127,18 @@ export const PollProvider = ({ children }: { children: React.ReactNode }) => {
             status: 'success', 
             assetId 
           });
+          addLog(`[Item:${id}] Approved by Roblox Moderation!`, 'success');
           refresh();
         } else if (moderationState === 'reviewing') {
           await api.updateItem(id, { status: 'reviewing', assetId });
           refresh();
         } else {
-          console.log(`⏳ [Poll:${id}] Unknown state "${moderationState}", keep polling...`);
+          addLog(`[Item:${id}] Unknown moderation state: "${moderationState}", keep polling...`, 'warning');
           await api.updateItem(id, { assetId });
           refresh();
         }
-      } catch (e) {
-        console.error(`❌ [Poll:${id}] Error:`, e);
+      } catch (e: any) {
+        addLog(`[Item:${id}] Error during poll: ${e.message}`, 'error');
       }
     }, 30000);
   }, [refresh]);
@@ -144,7 +167,7 @@ export const PollProvider = ({ children }: { children: React.ReactNode }) => {
   }, [refresh, startPoll]);
 
   return (
-    <PollContext.Provider value={{ startPoll, refresh, items, loading }}>
+    <PollContext.Provider value={{ startPoll, refresh, items, loading, logs, addLog, clearLogs }}>
       {children}
     </PollContext.Provider>
   );

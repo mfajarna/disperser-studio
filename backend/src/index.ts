@@ -33,15 +33,15 @@ app.post('/api/roblox/upload', upload.single('file'), async (req, res) => {
   try {
     const formData = new FormData();
     const fileBlob = new Blob([new Uint8Array(file.buffer)], { type: file.mimetype });
-    
+
     const metadata = {
       assetType: 'Audio',
       displayName: name || 'Uploaded Audio',
       description: description || 'Uploaded via Disperser Studio',
-      creationContext: { 
-        creator: { 
-          userId: userId || "0" 
-        } 
+      creationContext: {
+        creator: {
+          userId: userId || "0"
+        }
       }
     };
 
@@ -58,12 +58,12 @@ app.post('/api/roblox/upload', upload.single('file'), async (req, res) => {
     });
 
     const data = await response.json();
-    
+
     if (!response.ok) {
       console.error('❌ Roblox API Error Response:', JSON.stringify(data, null, 2));
       throw new Error(data.message || `Roblox API Error: ${response.status} ${response.statusText}`);
     }
-    
+
     console.log('✅ Roblox Upload Successful:', data.path || data.id || 'Operation Created');
     res.json({ success: true, operation: data });
   } catch (error) {
@@ -147,9 +147,9 @@ app.post('/api/youtube/download', async (req, res) => {
           resolve({ title: 'audio', duration: 0 });
         } else {
           const lines = stdout.trim().split('\n');
-          resolve({ 
-            title: lines[0] || 'audio', 
-            duration: parseFloat(lines[1]) || 0 
+          resolve({
+            title: lines[0] || 'audio',
+            duration: parseFloat(lines[1]) || 0
           });
         }
       });
@@ -191,7 +191,7 @@ app.post('/api/youtube/download', async (req, res) => {
     }
 
     const stat = fs.statSync(actualFile);
-    
+
     res.setHeader('Content-Type', 'audio/mpeg');
     res.setHeader('Content-Length', stat.size.toString());
     res.setHeader('X-Audio-Title', encodeURIComponent(title));
@@ -201,15 +201,15 @@ app.post('/api/youtube/download', async (req, res) => {
     readStream.pipe(res);
 
     readStream.on('end', () => {
-      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { }
     });
 
     readStream.on('error', () => {
-      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { }
     });
 
   } catch (error) {
-    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { }
     console.error('YouTube download failed:', error.message);
     res.status(500).json({ success: false, error: error.message });
   }
