@@ -344,7 +344,7 @@ export default function AudioStudio() {
       setAssetName('');
       setYtUrl('');
       setHistory(await api.getHistory());
-      
+
       console.log('[DEBUG] AudioStudio: Single save successful');
     } catch (e: any) {
       console.error('[DEBUG] AudioStudio: Single save failed', e);
@@ -462,7 +462,7 @@ export default function AudioStudio() {
                   Import audio from <span className="text-red-400 font-semibold">YouTube</span> or upload a local file.
                   Then use the built-in editor to <span className="text-cyan-400 font-semibold">trim</span>,
                   adjust <span className="text-cyan-400 font-semibold">speed</span>,
-                  <span className="text-cyan-400 font-semibold">pitch</span>, and
+                  <span className="text-cyan-400 font-semibold">pitch</span>, and {" "}
                   <span className="text-cyan-400 font-semibold">volume</span> before uploading to Roblox.
                 </p>
                 <div className="flex gap-2 pt-2">
@@ -703,10 +703,10 @@ export default function AudioStudio() {
                   <Button variant="outline" size="sm" onClick={() => applyToAll('volume', 1)} className="text-[10px] h-8 bg-slate-950 border-slate-800 hover:text-cyan-400">100% Vol</Button>
                   <Button variant="outline" size="sm" onClick={() => applyToAll('speed', 1)} className="text-[10px] h-8 bg-slate-950 border-slate-800 hover:text-cyan-400">1x Speed</Button>
                   <Button variant="outline" size="sm" onClick={() => applyToAll('pitch', 0)} className="text-[10px] h-8 bg-slate-950 border-slate-800 hover:text-cyan-400">0 Pitch</Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => { applyToAll('volume', 0.05); applyToAll('speed', 2.3); }} 
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => { applyToAll('volume', 0.05); applyToAll('speed', 2.3); }}
                     className="text-[10px] h-8 bg-cyan-500/10 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 gap-1.5"
                   >
                     <Sparkles size={12} /> Auto Optimize (5% Vol, 2.3x Speed)
@@ -719,7 +719,7 @@ export default function AudioStudio() {
                 <AlertCircle size={16} className="text-cyan-400 mt-0.5 shrink-0" />
                 <p className="text-xs text-slate-400 leading-relaxed">
                   <span className="text-cyan-400 font-bold uppercase tracking-wider mr-2">Roblox Best Practice:</span>
-                  To increase approval rates, use <span className="text-white font-medium">5% Volume</span> and <span className="text-white font-medium">2.3x Speed</span>. 
+                  To increase approval rates, use <span className="text-white font-medium">5% Volume</span> and <span className="text-white font-medium">2.3x Speed</span>.
                   After uploading, set the <span className="text-cyan-400 font-bold underline">PlaybackSpeed to 0.43</span> in your Roblox sound properties.
                 </p>
               </div>
@@ -904,7 +904,7 @@ export default function AudioStudio() {
                         </Button>
                       </div>
                     </div>
-                    
+
                     {/* Best Practice Tip for Single */}
                     <div className="bg-cyan-500/5 border border-cyan-500/10 rounded-lg p-3 flex items-start gap-3 mt-2">
                       <AlertCircle size={14} className="text-cyan-400 mt-0.5 shrink-0" />
