@@ -4,6 +4,8 @@ import RegionsPlugin from 'wavesurfer.js/dist/plugins/regions.esm.js';
 import * as Tone from 'tone';
 import audioBufferToWav from 'audiobuffer-to-wav';
 import { api } from '../api/api';
+import { useNavigate } from 'react-router-dom';
+import { usePollContext } from '@/context/PollContext';
 import { processAudio } from '@/utils/processor';
 import {
   Upload,
@@ -67,6 +69,9 @@ export default function AudioStudio() {
   const [ytError, setYtError] = useState('');
   const [saveError, setSaveError] = useState('');
 
+  const navigate = useNavigate();
+  const { refresh } = usePollContext();
+
   // Bulk Upload Context
   const {
     bulkQueue,
@@ -78,13 +83,27 @@ export default function AudioStudio() {
     processBulkQueue,
     updateBulkItem,
     applyToAll,
-    handleSaveAll,
+    handleSaveAll: originalSaveAll,
     clearBulkQueue,
     loading: bulkLoading,
     loadingMsg: bulkLoadingMsg,
     saveError: bulkSaveError,
     setSaveError: setBulkSaveError
   } = useBulkUpload();
+
+  const handleSaveAll = async () => {
+    console.log('[DEBUG] AudioStudio: handleSaveAll triggered');
+    try {
+      await originalSaveAll();
+      console.log('[DEBUG] AudioStudio: originalSaveAll finished');
+    } catch (e) {
+      console.error('[DEBUG] AudioStudio: originalSaveAll failed', e);
+    } finally {
+      console.log('[DEBUG] AudioStudio: Redirecting to library...');
+      await refresh();
+      navigate('/dashboard/library');
+    }
+  };
 
   const [bulkYtUrls, setBulkYtUrls] = useState('');
 
@@ -317,19 +336,26 @@ export default function AudioStudio() {
         trimStart: trim.start,
         trimEnd: trim.end
       });
-      const wav = new Uint8Array(audioBufferToWav(processed));
-      await api.addToQueue(assetName, 'Uploaded via Studio', wav);
+      const wav = audioBufferToWav(processed);
+      const wavBlob = new Blob([wav], { type: 'audio/wav' });
+      await api.addToQueue(assetName, 'Uploaded via Studio', wavBlob);
 
       setFile(null);
       setAssetName('');
       setYtUrl('');
       setHistory(await api.getHistory());
+      
+      console.log('[DEBUG] AudioStudio: Single save successful');
     } catch (e: any) {
-      console.error('Processing error:', e);
+      console.error('[DEBUG] AudioStudio: Single save failed', e);
       setSaveError('Processing failed: ' + e.message);
+    } finally {
+      console.log('[DEBUG] AudioStudio: Refreshing & Redirecting...');
+      await refresh();
+      navigate('/dashboard/library');
+      setLoading(false);
+      setLoadingMsg('');
     }
-    setLoading(false);
-    setLoadingMsg('');
   };
 
   const handleBulkYoutubeAdd = () => {

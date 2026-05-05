@@ -44,7 +44,7 @@ import {
 } from '@/components/ui/alert-dialog';
 
 export default function AudioLibrary() {
-  const { items, loading, refresh, startPoll, logs, addLog, clearLogs } = usePollContext();
+  const { items, loading, refresh, updateItemLocal, startPoll, logs, addLog, clearLogs } = usePollContext();
   const [search, setSearch] = useState('');
   const [uploadingIds, setUploadingIds] = useState<Set<string>>(new Set());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -83,16 +83,16 @@ export default function AudioLibrary() {
 
     setUploadingIds(prev => new Set(prev).add(id));
     await api.updateItem(id, { status: 'uploading', errorMessage: null });
+    updateItemLocal(id, { status: 'uploading', errorMessage: null });
     addLog(`[Item:${id}] Starting upload process for "${item.name}"...`, 'info');
-    refresh();
 
     try {
-      addLog(`[Item:${id}] Fetching audio buffer...`, 'info');
-      const buffer = await api.getItemBuffer(id);
-      if (!buffer) throw new Error('Audio buffer not found');
+      addLog(`[Item:${id}] Preparing secure transfer...`, 'info');
+      const signedUrl = await api.getSignedUrl(id);
+      if (!signedUrl) throw new Error('Failed to generate source link');
 
-      addLog(`[Item:${id}] Uploading to Roblox API...`, 'info');
-      const res = await api.robloxUpload(item.name, item.description || 'Uploaded via Disperser Studio', buffer);
+      addLog(`[Item:${id}] Uploading to Roblox (Server-side stream)...`, 'info');
+      const res = await api.robloxUploadFromUrl(item.name, item.description || 'Uploaded via Disperser Studio', signedUrl);
 
       if (res.success && res.operation?.path) {
         addLog(`[Item:${id}] Upload successful! Operation Path: ${res.operation.path}`, 'success');
@@ -107,7 +107,7 @@ export default function AudioLibrary() {
     }
 
     setUploadingIds(prev => { const n = new Set(prev); n.delete(id); return n; });
-    refresh();
+    refresh(true);
   };
 
   const handleBulkUpload = async () => {
@@ -121,14 +121,18 @@ export default function AudioLibrary() {
     setIsBulkUploading(true);
     setBulkProgress(0);
 
-    for (let i = 0; i < toUpload.length; i++) {
-      setBulkProgress(i + 1);
-      await handleUpload(toUpload[i]);
+    try {
+      for (let i = 0; i < toUpload.length; i++) {
+        setBulkProgress(i + 1);
+        await handleUpload(toUpload[i]);
+      }
+    } catch (e: any) {
+      addLog(`Bulk upload interrupted: ${e.message}`, 'error');
+    } finally {
+      setIsBulkUploading(false);
+      setSelectedIds(new Set());
+      setBulkProgress(0);
     }
-
-    setIsBulkUploading(false);
-    setSelectedIds(new Set());
-    setBulkProgress(0);
   };
 
   const handleBulkDelete = async () => {
@@ -154,11 +158,20 @@ export default function AudioLibrary() {
   };
 
   const toggleSelectAll = () => {
-    if (selectedIds.size === paginatedItems.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(paginatedItems.map(i => i.id)));
-    }
+    const selectableOnPage = paginatedItems.filter(i => i.status === 'pending' || i.status === 'error');
+    if (selectableOnPage.length === 0) return;
+
+    const allSelectableSelected = selectableOnPage.every(i => selectedIds.has(i.id));
+
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (allSelectableSelected) {
+        selectableOnPage.forEach(i => next.delete(i.id));
+      } else {
+        selectableOnPage.forEach(i => next.add(i.id));
+      }
+      return next;
+    });
   };
 
   const getStatusConfig = (status: string) => {
@@ -245,8 +258,13 @@ export default function AudioLibrary() {
               <TableRow className="border-slate-800">
                 <TableHead className="w-12 px-4">
                   <Checkbox
-                    checked={selectedIds.size > 0 && selectedIds.size === paginatedItems.length}
+                    checked={
+                      paginatedItems.length > 0 && 
+                      paginatedItems.filter(i => i.status === 'pending' || i.status === 'error').length > 0 &&
+                      paginatedItems.filter(i => i.status === 'pending' || i.status === 'error').every(i => selectedIds.has(i.id))
+                    }
                     onCheckedChange={toggleSelectAll}
+                    disabled={paginatedItems.filter(i => i.status === 'pending' || i.status === 'error').length === 0}
                   />
                 </TableHead>
                 <TableHead className="text-slate-300">Asset Details</TableHead>
@@ -277,6 +295,7 @@ export default function AudioLibrary() {
                         <Checkbox
                           checked={isSelected}
                           onCheckedChange={() => toggleSelect(item.id)}
+                          disabled={item.status !== 'pending' && item.status !== 'error'}
                         />
                       </TableCell>
                       <TableCell className="py-4">
@@ -459,42 +478,48 @@ export default function AudioLibrary() {
       )}
 
       {/* Activity Logs Section */}
-      <div className="mt-8 rounded-lg border border-slate-800 bg-slate-900/50 backdrop-blur-sm p-4">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></div>
-            <h3 className="text-sm font-semibold text-white">Activity Logs</h3>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={clearLogs}
-            className="h-7 text-xs text-slate-400 hover:text-white"
-          >
-            Clear Logs
-          </Button>
-        </div>
-        <div className="bg-black/40 rounded border border-slate-800 p-3 h-48 overflow-y-auto font-mono text-[11px] leading-relaxed flex flex-col gap-1">
-          {logs.length === 0 ? (
-            <span className="text-slate-600 italic">No recent activity...</span>
-          ) : (
-            logs.map((log) => {
-              const time = new Date(log.timestamp).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-              let color = 'text-slate-300';
-              if (log.type === 'error') color = 'text-red-400';
-              if (log.type === 'success') color = 'text-emerald-400';
-              if (log.type === 'warning') color = 'text-amber-400';
-
-              return (
-                <div key={log.id} className={`${color}`}>
-                  <span className="text-slate-600 mr-2">[{time}]</span>
-                  {log.message}
-                </div>
-              );
-            })
-          )}
-        </div>
-      </div>
+      <ActivityLogs logs={logs} onClear={clearLogs} />
     </div>
   );
 }
+
+const ActivityLogs = React.memo(({ logs, onClear }: { logs: any[], onClear: () => void }) => {
+  return (
+    <div className="mt-8 rounded-lg border border-slate-800 bg-slate-900/50 backdrop-blur-sm p-4">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></div>
+          <h3 className="text-sm font-semibold text-white">Activity Logs</h3>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onClear}
+          className="h-7 text-xs text-slate-400 hover:text-white"
+        >
+          Clear Logs
+        </Button>
+      </div>
+      <div className="bg-black/40 rounded border border-slate-800 p-3 h-48 overflow-y-auto font-mono text-[11px] leading-relaxed flex flex-col gap-1">
+        {logs.length === 0 ? (
+          <span className="text-slate-600 italic">No recent activity...</span>
+        ) : (
+          logs.map((log) => {
+            const time = new Date(log.timestamp).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            let color = 'text-slate-300';
+            if (log.type === 'error') color = 'text-red-400';
+            if (log.type === 'success') color = 'text-emerald-400';
+            if (log.type === 'warning') color = 'text-amber-400';
+
+            return (
+              <div key={log.id} className={`${color}`}>
+                <span className="text-slate-600 mr-2">[{time}]</span>
+                {log.message}
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+});

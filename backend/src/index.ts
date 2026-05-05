@@ -52,7 +52,6 @@ app.post('/api/roblox/upload', upload.single('file'), async (req, res) => {
 
     console.log(`🚀 Uploading to Roblox: ${metadata.displayName} (Creator: ${userId || 'unknown'})`);
 
-    // Using global fetch (native in Node 24+)
     const response = await fetch('https://apis.roblox.com/assets/v1/assets', {
       method: 'POST',
       headers: { 'x-api-key': apiKey },
@@ -70,6 +69,55 @@ app.post('/api/roblox/upload', upload.single('file'), async (req, res) => {
     res.json({ success: true, operation: data });
   } catch (error) {
     console.error('❌ Internal Server Error during upload:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.post('/api/roblox/upload-from-url', async (req, res) => {
+  const { apiKey, userId, name, description, fileUrl } = req.body;
+
+  if (!apiKey || !fileUrl) {
+    return res.status(400).json({ success: false, error: 'Missing API Key or File URL' });
+  }
+
+  try {
+    console.log(`📡 Fetching asset from Supabase URL...`);
+    const downloadRes = await fetch(fileUrl);
+    if (!downloadRes.ok) throw new Error('Failed to download asset from source URL');
+    
+    const arrayBuffer = await downloadRes.arrayBuffer();
+    const fileBlob = new Blob([new Uint8Array(arrayBuffer)], { type: 'audio/wav' });
+
+    const metadata = {
+      assetType: 'Audio',
+      displayName: name || 'Uploaded Audio',
+      description: description || 'Uploaded via Disperser Studio',
+      creationContext: {
+        creator: {
+          userId: userId || "0"
+        }
+      }
+    };
+
+    const formData = new FormData();
+    formData.append('request', JSON.stringify(metadata));
+    formData.append('fileContent', fileBlob, 'audio.wav');
+
+    console.log(`🚀 Streaming to Roblox: ${metadata.displayName}`);
+
+    const response = await fetch('https://apis.roblox.com/assets/v1/assets', {
+      method: 'POST',
+      headers: { 'x-api-key': apiKey },
+      body: formData
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || 'Roblox API Error');
+
+    console.log('✅ Roblox Stream Successful');
+    res.json({ success: true, operation: data });
+  } catch (error) {
+    console.error('❌ Stream Error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

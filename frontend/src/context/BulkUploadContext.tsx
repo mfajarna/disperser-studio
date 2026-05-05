@@ -156,8 +156,9 @@ export const BulkUploadProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           trimEnd: item.trim?.end || original.duration
         });
 
-        const wav = new Uint8Array(audioBufferToWav(processed));
-        await api.addToQueue(item.assetName || item.name, 'Bulk Upload via Studio', wav);
+        const wav = audioBufferToWav(processed);
+        const wavBlob = new Blob([wav], { type: 'audio/wav' });
+        await api.addToQueue(item.assetName || item.name, 'Bulk Upload via Studio', wavBlob);
       }
       
       setBulkQueue([]);

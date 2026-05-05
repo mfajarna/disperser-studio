@@ -9,13 +9,13 @@ import AudioStudio from './pages/AudioStudio';
 import AudioLibrary from './pages/AudioLibrary';
 import { PollProvider } from './context/PollContext';
 import { BulkUploadProvider, useBulkUpload } from './context/BulkUploadContext';
-import { 
-  LayoutDashboard, 
-  Music, 
-  Image as ImageIcon, 
-  Settings as SettingsIcon, 
-  LogOut, 
-  Key, 
+import {
+  LayoutDashboard,
+  Music,
+  Image as ImageIcon,
+  Settings as SettingsIcon,
+  LogOut,
+  Key,
   ArrowLeft,
   ChevronRight,
   Sparkles,
@@ -30,8 +30,8 @@ const Sidebar = () => {
   const loc = useLocation();
   const navigate = useNavigate();
   const { bulkQueue, isBulkProcessing } = useBulkUpload();
-  const logout = () => { 
-    localStorage.removeItem('disperser_key'); 
+  const logout = () => {
+    localStorage.removeItem('disperser_key');
     navigate('/');
   };
 
@@ -53,14 +53,14 @@ const Sidebar = () => {
           Disperser
         </span>
       </div>
-      
-      <nav className="flex-1 space-y-1 mt-6">
+
+      <nav className="flex-1 space-y-1 mt-0">
         {menuItems.map((item) => {
           const isActive = loc.pathname === item.path;
           return (
-            <Link 
+            <Link
               key={item.path}
-              to={item.path} 
+              to={item.path}
               className={`nav-link relative flex items-center justify-between group ${isActive ? 'active' : ''}`}
             >
               <div className="flex items-center gap-3">
@@ -94,8 +94,8 @@ const Sidebar = () => {
           </div>
         )}
 
-        <button 
-          className="nav-link w-full flex items-center gap-3 text-slate-400 hover:text-red-400 hover:bg-red-500/5 transition-all" 
+        <button
+          className="nav-link w-full flex items-center gap-3 text-slate-400 hover:text-red-400 hover:bg-red-500/5 transition-all"
           onClick={logout}
           style={{ border: 'none', background: 'none', cursor: 'pointer' }}
         >
@@ -139,12 +139,12 @@ const Login = ({ setKey }: { setKey: (k: string) => void }) => {
           </div>
           <div className="space-y-2">
             <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Open Cloud API Key</label>
-            <input 
+            <input
               className="w-full bg-[#080a0c] border border-slate-800 rounded-xl py-3 px-4 text-white focus:ring-2 focus:ring-cyan-500/50 outline-none transition-all"
-              type="password" 
-              placeholder="Paste key here..." 
-              value={inputKey} 
-              onChange={e => setInputKey(e.target.value)} 
+              type="password"
+              placeholder="Paste key here..."
+              value={inputKey}
+              onChange={e => setInputKey(e.target.value)}
             />
           </div>
           <button className="w-full py-4 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-xl font-bold shadow-lg shadow-cyan-600/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2" onClick={handleLogin}>
