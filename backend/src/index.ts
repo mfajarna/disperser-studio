@@ -25,8 +25,8 @@ const hasCookies = fs.existsSync(cookiesPath);
 const ytConfig = {
   executable: os.platform() === 'win32' ? 'yt-dlp' : 'python3',
   baseArgs: os.platform() === 'win32' 
-    ? (hasCookies ? ['--cookies', cookiesPath, '--no-write-cookies'] : []) 
-    : ['/usr/local/bin/yt-dlp', ...(hasCookies ? ['--cookies', cookiesPath, '--no-write-cookies'] : [])]
+    ? (hasCookies ? ['--cookies', cookiesPath] : []) 
+    : ['/usr/local/bin/yt-dlp', ...(hasCookies ? ['--cookies', cookiesPath] : [])]
 };
 
 if (hasCookies) {
