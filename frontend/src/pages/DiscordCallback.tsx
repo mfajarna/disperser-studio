@@ -69,7 +69,7 @@ export default function DiscordCallback() {
     if (!userData) return;
     setIsVerifyingAgain(true);
     try {
-      const response = await fetch('http://localhost:5001/api/discord/verify-role', {
+      const response = await fetch(`${BASE_URL}/api/discord/verify-role`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: userData.id }),

@@ -105,8 +105,8 @@ export function initBot(supabase: any) {
             merchantOrderId,
             productDetails: `Langganan ${roleName}`,
             email: "customer@disperser.com",
-            callbackUrl: `${process.env.API_URL || 'http://localhost:5001'}/api/payment/duitku-callback`,
-            returnUrl: `${process.env.APP_URL || 'http://localhost:5173'}/dashboard`,
+            callbackUrl: `${process.env.API_URL}/api/payment/duitku-callback`,
+            returnUrl: `${process.env.APP_URL}/dashboard`,
             signature,
             expiryPeriod: 30
           })
