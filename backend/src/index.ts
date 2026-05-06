@@ -432,11 +432,10 @@ app.post('/api/youtube/download', async (req, res) => {
 
     // Step 2: Download and convert to MP3
     await new Promise((resolve, reject) => {
-      // Use iOS client disguise - currently the most effective bypass for PO Token
+      // Use embedded and ios clients which often have fewer restrictions
       const finalArgs = [
         ...ytConfig.baseArgs,
-        '--user-agent', 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1',
-        '--extractor-args', 'youtube:player_client=ios',
+        '--extractor-args', 'youtube:player_client=ios,web_embedded',
         '--rm-cache-dir',
         '--no-check-certificates',
         '--format', 'bestaudio/best',
