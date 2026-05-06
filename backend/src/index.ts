@@ -25,8 +25,8 @@ const hasCookies = fs.existsSync(cookiesPath);
 const ytConfig = {
   executable: os.platform() === 'win32' ? 'yt-dlp' : 'python3',
   baseArgs: os.platform() === 'win32' 
-    ? (hasCookies ? ['--cookies', cookiesPath] : []) 
-    : ['/usr/local/bin/yt-dlp', ...(hasCookies ? ['--cookies', cookiesPath] : [])]
+    ? (hasCookies ? ['--cookies', cookiesPath, '--no-write-cookies'] : []) 
+    : ['/usr/local/bin/yt-dlp', ...(hasCookies ? ['--cookies', cookiesPath, '--no-write-cookies'] : [])]
 };
 
 if (hasCookies) {
@@ -437,6 +437,7 @@ app.post('/api/youtube/download', async (req, res) => {
         '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         '-f', 'bestaudio/best',
         '--no-cache-dir',
+        '--ffmpeg-location', os.platform() === 'win32' ? 'ffmpeg' : '/usr/bin/ffmpeg',
         '-x',
         '--audio-format', 'mp3',
         '--audio-quality', '0',
