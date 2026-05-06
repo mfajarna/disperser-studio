@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation, Navigate, useNavigate } from 'react-router-dom';
-import UploadAudio from './pages/UploadAudio';
 import UploadImage from './pages/UploadImage';
 import Overview from './pages/Overview';
 import Settings from './pages/Settings';
@@ -16,13 +15,11 @@ import {
   Image as ImageIcon,
   Settings as SettingsIcon,
   LogOut,
-  Key,
   ArrowLeft,
   ChevronRight,
   Sparkles,
   ListMusic,
   Loader2,
-  AlertCircle,
   MessageSquare
 } from 'lucide-react';
 
@@ -30,7 +27,6 @@ import {
 
 const Sidebar = () => {
   const loc = useLocation();
-  const navigate = useNavigate();
   const { bulkQueue, isBulkProcessing } = useBulkUpload();
   const logout = () => {
     localStorage.removeItem('disperser_key');
@@ -133,8 +129,7 @@ const Sidebar = () => {
   );
 };
 
-const Login = ({ setUser }: { setUser: (u: any) => void }) => {
-  const navigate = useNavigate();
+const Login = () => {
 
   const handleDiscordLogin = () => {
     const clientId = import.meta.env.VITE_DISCORD_CLIENT_ID;
@@ -183,7 +178,7 @@ const Home = () => {
     }
   }, [navigate]);
 
-  return <LandingPage onLoginClick={() => navigate('/login')} />;
+  return <LandingPage onLoginClick={() => window.location.href = '/login'} />;
 };
 
 const DashboardLayout = ({ userExists }: { userExists: boolean }) => {
@@ -213,13 +208,13 @@ const DashboardLayout = ({ userExists }: { userExists: boolean }) => {
 // --- Main App ---
 
 export default function App() {
-  const [user, setUser] = useState(localStorage.getItem('disperser_user'));
+  const [user] = useState(localStorage.getItem('disperser_user'));
 
   return (
     <Router>
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/login" element={<Login setUser={setUser} />} />
+        <Route path="/login" element={<Login />} />
         <Route path="/discord-callback" element={<DiscordCallback />} />
         <Route path="/dashboard/*" element={<DashboardLayout userExists={!!user} />} />
         <Route path="*" element={<Navigate to="/" />} />
