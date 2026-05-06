@@ -151,7 +151,8 @@ export function initBot(supabase: any) {
           });
         } else {
           console.error('Duitku API Error Response:', data);
-          await interaction.editReply({ content: `Gagal menghubungi payment gateway. Reason: ${data.statusMessage || 'Unknown error'}`, components: [] });
+          const errorMsg = data.Message || data.statusMessage || JSON.stringify(data);
+          await interaction.editReply({ content: `Gagal menghubungi payment gateway. Reason: \`${errorMsg}\``, components: [] });
         }
       } catch (err) {
         console.error('Duitku API Error:', err);
