@@ -435,6 +435,8 @@ app.post('/api/youtube/download', async (req, res) => {
       execFile(ytConfig.executable, [
         ...ytConfig.baseArgs,
         '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        '-f', 'bestaudio/best',
+        '--no-cache-dir',
         '-x',
         '--audio-format', 'mp3',
         '--audio-quality', '0',
