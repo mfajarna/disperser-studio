@@ -9,7 +9,9 @@ import fs from 'fs';
 import os from 'os';
 import http from 'http';
 
+import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
+import { initBot, getBotClient } from './bot';
 
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
@@ -22,12 +24,82 @@ const supabase = createClient(
   process.env.VITE_SUPABASE_ANON_KEY || "" // Note: In production, use SERVICE_ROLE_KEY for backend operations
 );
 
+// Initialize Discord Bot
+initBot(supabase);
+
 app.use(cors({
   exposedHeaders: ['X-Audio-Title']
 }));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 const upload = multer({ storage: multer.memoryStorage() });
+
+// --- Duitku Callback Endpoint ---
+app.post('/api/payment/duitku-callback', async (req, res) => {
+  try {
+    const { merchantCode, amount, merchantOrderId, signature, reference, resultCode } = req.body;
+    
+    const apiKey = process.env.DUITKU_API_KEY || '';
+    const expectedSignature = crypto.createHash('md5').update(merchantCode + amount + merchantOrderId + apiKey).digest('hex');
+    
+    if (signature !== expectedSignature) {
+      return res.status(400).json({ error: 'Invalid signature' });
+    }
+    
+    if (resultCode === '00') {
+      const { data: tx, error: txError } = await supabase
+        .from('transactions')
+        .update({ status: 'success' })
+        .eq('merchant_order_id', merchantOrderId)
+        .select()
+        .single();
+        
+      if (!txError && tx) {
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + 30);
+        
+        await supabase
+          .from('users')
+          .update({ 
+            current_role: tx.role_target,
+            subscription_expires_at: expiresAt.toISOString()
+          })
+          .eq('id', tx.user_id);
+          
+        let roleId = '';
+        if (tx.role_target === 'Solo Dev') roleId = process.env.ROLE_SOLODEV_ID || '';
+        else if (tx.role_target === 'Studio') roleId = process.env.ROLE_STUDIO_ID || '';
+        else if (tx.role_target === 'Enterprise') roleId = process.env.ROLE_ENTERPRISE_ID || '';
+        
+        const guildId = process.env.DISCORD_GUILD_ID;
+        if (guildId && roleId) {
+           const botClient = getBotClient();
+           try {
+             const guild = await botClient.guilds.fetch(guildId);
+             const member = await guild.members.fetch(tx.user_id);
+             await member.roles.add(roleId);
+             
+             // Format the expiration date
+             const expireStr = expiresAt.toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' });
+             
+             // Send DM with full order details
+             const dmMessage = `🎉 **Pembayaran Berhasil!** 🎉\n\nTerima kasih, pembayaran langganan Anda telah kami terima.\n\n📝 **Detail Pesanan:**\n- **Order ID:** \`${tx.merchant_order_id}\`\n- **Paket Tier:** ${tx.role_target}\n- **Masa Aktif Hingga:** ${expireStr}\n\nRole Anda di server Discord dan Website sudah otomatis di-update!`;
+             
+             await member.send(dmMessage);
+           } catch (e) {
+             console.error('Failed to update Discord role via callback:', e);
+           }
+        }
+      }
+    }
+    
+    res.status(200).send('OK');
+  } catch (error) {
+    console.error('Duitku callback error:', error);
+    res.status(500).send('Internal Server Error');
+  }
+});
 
 // --- Roblox API Endpoints ---
 
