@@ -19,9 +19,14 @@ const app = express();
 const port = process.env.PORT || 5001;
 
 // YT-DLP Cross-platform Helper
+const cookiesPath = path.resolve(__dirname, '../cookies.txt');
+const hasCookies = fs.existsSync(cookiesPath);
+
 const ytConfig = {
   executable: os.platform() === 'win32' ? 'yt-dlp' : 'python3',
-  baseArgs: os.platform() === 'win32' ? [] : ['/usr/local/bin/yt-dlp']
+  baseArgs: os.platform() === 'win32' 
+    ? (hasCookies ? ['--cookies', cookiesPath] : []) 
+    : ['/usr/local/bin/yt-dlp', ...(hasCookies ? ['--cookies', cookiesPath] : [])]
 };
 
 // Initialize Supabase
