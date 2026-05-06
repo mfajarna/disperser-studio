@@ -443,10 +443,21 @@ app.post('/api/youtube/download', async (req, res) => {
 
     // Step 2: Download and convert to MP3
     await new Promise((resolve, reject) => {
-      // Use embedded and ios clients which often have fewer restrictions
+      // Create a temporary copy of cookies to avoid permission errors
+      let tempCookiesPath = null;
+      if (hasCookies) {
+        try {
+          tempCookiesPath = path.join(os.tmpdir(), `cookies-${Date.now()}-${Math.random().toString(36).substring(7)}.txt`);
+          fs.copyFileSync(cookiesPath, tempCookiesPath);
+        } catch (e) {
+          console.error('Failed to copy cookies:', e);
+        }
+      }
+
       const finalArgs = [
         ...ytConfig.baseArgs,
-        '--extractor-args', 'youtube:player_client=ios,web_embedded',
+        '--user-agent', 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+        '--extractor-args', 'youtube:player_client=android,mweb',
         '--rm-cache-dir',
         '--no-check-certificates',
         '--format', 'bestaudio/best',
@@ -459,7 +470,20 @@ app.post('/api/youtube/download', async (req, res) => {
         url
       ];
 
-      execFile(ytConfig.executable, finalArgs, { timeout: 120000 }, (err, stdout, stderr) => {
+      // Update cookies path to temp one if created
+      if (tempCookiesPath) {
+        const idx = finalArgs.indexOf('--cookies');
+        if (idx !== -1) {
+          finalArgs[idx + 1] = tempCookiesPath;
+        }
+      }
+
+      execFile(ytConfig.executable, finalArgs, { timeout: 180000 }, (err, stdout, stderr) => {
+        // Cleanup temp cookies
+        if (tempCookiesPath && fs.existsSync(tempCookiesPath)) {
+          try { fs.unlinkSync(tempCookiesPath); } catch (e) {}
+        }
+        
         if (err) {
           console.error('yt-dlp error:', stderr);
           reject(new Error(stderr || err.message));
