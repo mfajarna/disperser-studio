@@ -142,16 +142,10 @@ export const BulkUploadProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     try {
       for (let i = 0; i < itemsToProcess.length; i++) {
         const item = itemsToProcess[i];
-        
-        // Duration Validation
-        const trimStart = item.trim?.start || 0;
-        const trimEnd = item.trim?.end || item.buffer?.duration || 0; // Assuming buffer has duration or we get it from decode
-        
-        // Actually we need to decode first to get duration if not present
         setLoadingMsg(`Processing ${i + 1}/${itemsToProcess.length}: ${item.assetName || item.name}...`);
         
         const audioCtx = new AudioContext();
-        const original = await audioCtx.decodeAudioData(item.buffer!.buffer.slice(0));
+        const original = await audioCtx.decodeAudioData(item.buffer!.buffer.slice(0) as ArrayBuffer);
         audioCtx.close();
 
         const finalDuration = ( (item.trim?.end || original.duration) - (item.trim?.start || 0) ) / item.speed;
@@ -167,7 +161,7 @@ export const BulkUploadProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           trimEnd: item.trim?.end || original.duration
         });
 
-        const wav = audioBufferToWav(processed);
+        const wav = audioBufferToWav(processed.get()!);
         const wavBlob = new Blob([wav], { type: 'audio/wav' });
         await api.addToQueue(item.assetName || item.name, 'Bulk Upload via Studio', wavBlob);
       }
