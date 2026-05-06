@@ -29,6 +29,12 @@ const ytConfig = {
     : ['/usr/local/bin/yt-dlp', ...(hasCookies ? ['--cookies', cookiesPath] : [])]
 };
 
+if (hasCookies) {
+  console.log('🍪 Cookies detected and will be used for YT-DLP');
+} else {
+  console.log('🍪 Cookies NOT found at:', cookiesPath);
+}
+
 // Initialize Supabase
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL || "",
@@ -370,6 +376,7 @@ app.get('/api/youtube/info', async (req, res) => {
     const result = await new Promise((resolve, reject) => {
       execFile(ytConfig.executable, [
         ...ytConfig.baseArgs,
+        '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         '--print', '%(title)s',
         '--no-download',
         '--no-warnings',
@@ -399,6 +406,7 @@ app.post('/api/youtube/download', async (req, res) => {
     const info: any = await new Promise((resolve) => {
       execFile(ytConfig.executable, [
         ...ytConfig.baseArgs,
+        '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         '--print', '%(title)s',
         '--print', '%(duration)s',
         '--no-download',
@@ -426,6 +434,7 @@ app.post('/api/youtube/download', async (req, res) => {
     await new Promise((resolve, reject) => {
       execFile(ytConfig.executable, [
         ...ytConfig.baseArgs,
+        '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         '-x',
         '--audio-format', 'mp3',
         '--audio-quality', '0',
