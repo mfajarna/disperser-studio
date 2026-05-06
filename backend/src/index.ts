@@ -432,21 +432,23 @@ app.post('/api/youtube/download', async (req, res) => {
 
     // Step 2: Download and convert to MP3
     await new Promise((resolve, reject) => {
-      execFile(ytConfig.executable, [
+      // Use simpler format and clear cache
+      const finalArgs = [
         ...ytConfig.baseArgs,
         '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        '-f', 'bestaudio/best',
-        '--no-cache-dir',
+        '--rm-cache-dir',
+        '--no-check-certificates',
+        '--format', 'bestaudio/best',
         '--ffmpeg-location', os.platform() === 'win32' ? 'ffmpeg' : '/usr/bin/ffmpeg',
         '-x',
         '--audio-format', 'mp3',
         '--audio-quality', '0',
         '-o', outputFile,
         '--no-playlist',
-        '--no-warnings',
-        '--force-overwrites',
         url
-      ], { timeout: 120000 }, (err, stdout, stderr) => {
+      ];
+
+      execFile(ytConfig.executable, finalArgs, { timeout: 120000 }, (err, stdout, stderr) => {
         if (err) {
           console.error('yt-dlp error:', stderr);
           reject(new Error(stderr || err.message));
