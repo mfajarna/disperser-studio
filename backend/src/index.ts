@@ -18,6 +18,12 @@ dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 const app = express();
 const port = process.env.PORT || 5001;
 
+// YT-DLP Cross-platform Helper
+const ytConfig = {
+  executable: os.platform() === 'win32' ? 'yt-dlp' : 'python3',
+  baseArgs: os.platform() === 'win32' ? [] : ['/usr/local/bin/yt-dlp']
+};
+
 // Initialize Supabase
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL || "",
@@ -357,8 +363,8 @@ app.get('/api/youtube/info', async (req, res) => {
 
   try {
     const result = await new Promise((resolve, reject) => {
-      execFile('python3', [
-        '/usr/local/bin/yt-dlp',
+      execFile(ytConfig.executable, [
+        ...ytConfig.baseArgs,
         '--print', '%(title)s',
         '--no-download',
         '--no-warnings',
@@ -386,8 +392,8 @@ app.post('/api/youtube/download', async (req, res) => {
   try {
     // Step 1: Get title and duration
     const info: any = await new Promise((resolve) => {
-      execFile('python3', [
-        '/usr/local/bin/yt-dlp',
+      execFile(ytConfig.executable, [
+        ...ytConfig.baseArgs,
         '--print', '%(title)s',
         '--print', '%(duration)s',
         '--no-download',
@@ -413,8 +419,8 @@ app.post('/api/youtube/download', async (req, res) => {
 
     // Step 2: Download and convert to MP3
     await new Promise((resolve, reject) => {
-      execFile('python3', [
-        '/usr/local/bin/yt-dlp',
+      execFile(ytConfig.executable, [
+        ...ytConfig.baseArgs,
         '-x',
         '--audio-format', 'mp3',
         '--audio-quality', '0',
