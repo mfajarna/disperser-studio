@@ -205,20 +205,24 @@ const DashboardLayout = ({ userExists }: { userExists: boolean }) => {
   );
 };
 
+import { HelmetProvider } from 'react-helmet-async';
+
 // --- Main App ---
 
 export default function App() {
   const [user] = useState(localStorage.getItem('disperser_user'));
 
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/discord-callback" element={<DiscordCallback />} />
-        <Route path="/dashboard/*" element={<DashboardLayout userExists={!!user} />} />
-        <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
-    </Router>
+    <HelmetProvider>
+      <Router>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/discord-callback" element={<DiscordCallback />} />
+          <Route path="/dashboard/*" element={<DashboardLayout userExists={!!user} />} />
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </Router>
+    </HelmetProvider>
   );
 }

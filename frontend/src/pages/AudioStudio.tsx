@@ -44,6 +44,7 @@ import {
 import { z } from 'zod';
 import { BulkItemEditor } from './BulkItemEditor';
 import { useBulkUpload } from '@/context/BulkUploadContext';
+import { Helmet } from 'react-helmet-async';
 
 const assetSchema = z.object({
   name: z.string().min(1, 'Asset name is required').min(3, 'Name must be at least 3 characters').max(50, 'Name must be under 50 characters'),
@@ -419,7 +420,10 @@ export default function AudioStudio() {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="space-y-10 animate-in fade-in duration-700">
+      <Helmet>
+        <title>Audio Studio | Disperser Studio</title>
+      </Helmet>
       {/* Loading Overlay */}
       {(loading || bulkLoading) && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[100] flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-300">

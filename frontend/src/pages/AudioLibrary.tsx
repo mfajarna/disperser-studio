@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { api } from '../api/api';
 import { usePollContext } from '../context/PollContext';
+import { Helmet } from 'react-helmet-async';
 import {
   Table,
   TableBody,
@@ -202,6 +203,9 @@ export default function AudioLibrary() {
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
+      <Helmet>
+        <title>Audio Library | Disperser Studio</title>
+      </Helmet>
       {/* Stats Header */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-slate-900/40 border border-slate-800 p-4 rounded-xl backdrop-blur-sm">

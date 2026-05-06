@@ -1,4 +1,5 @@
 import React from 'react';
+import { Helmet } from 'react-helmet-async';
 import { Music, Zap, Shield, Youtube, Disc, ArrowRight } from 'lucide-react';
 
 interface LandingPageProps {
@@ -8,6 +9,22 @@ interface LandingPageProps {
 const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick }) => {
   return (
     <div className="min-h-screen bg-[#06080a] text-white selection:bg-cyan-500/30 relative">
+      <Helmet>
+        <title>Disperser Studio | Professional Roblox Audio Uploader & Management</title>
+        <meta name="description" content="The ultimate solution for Roblox creators. Upload, manage, and edit audio assets with professional tools, bulk import, and real-time moderation tracking." />
+        <meta name="keywords" content="Roblox, Audio Uploader, Disperser Studio, Roblox Open Cloud, Audio Management, Bulk Upload, YouTube to Roblox" />
+        
+        {/* Open Graph / Facebook */}
+        <meta property="og:type" content="website" />
+        <meta property="og:title" content="Disperser Studio | Professional Roblox Audio Management" />
+        <meta property="og:description" content="Automate your Roblox audio workflow. Bulk imports, YouTube extraction, and real-time moderation logs." />
+        
+        {/* Twitter */}
+        <meta property="twitter:card" content="summary_large_image" />
+        <meta property="twitter:title" content="Disperser Studio | Roblox Audio Uploader" />
+        <meta property="twitter:description" content="Professional audio management for Roblox creators. Upload and edit with ease." />
+      </Helmet>
+
       {/* Dynamic Background Glows - Cyan, Blue, Green */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
         {/* Top Left - Cyan */}

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Music, Image as ImageIcon, CheckCircle, Clock, AlertCircle, MessageSquare, Shield, Crown, Zap, SubscriptIcon, Subscript, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -73,6 +74,9 @@ export default function Overview() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
+      <Helmet>
+        <title>Dashboard | Disperser Studio</title>
+      </Helmet>
       <div className="page-header">
         <div className="flex items-center gap-2 text-cyan-400 text-sm font-bold mb-2">
           <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />

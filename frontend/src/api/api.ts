@@ -1,7 +1,7 @@
 import localforage from 'localforage';
 import { supabase } from './supabase';
 
-const BASE_URL = 'http://localhost:5001';
+export const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
 
 const getCurrentUserId = () => {
   try {

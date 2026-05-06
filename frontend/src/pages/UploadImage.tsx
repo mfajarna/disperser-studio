@@ -1,10 +1,14 @@
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Image as ImageIcon, Upload, FileWarning } from 'lucide-react';
+import { Helmet } from 'react-helmet-async';
 
 export default function UploadImage() {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
+      <Helmet>
+        <title>Upload Image | Disperser Studio</title>
+      </Helmet>
       <div className="page-header">
         <h1 className="page-title">Upload Images</h1>
         <p className="page-desc">Bulk upload decals, textures, and sprites to Roblox.</p>

@@ -6,6 +6,8 @@ import { Label } from '@/components/ui/label';
 import { ExternalLink, Key, User, Info, Save, CheckCircle, Users, Shield, Loader2, AlertCircle } from 'lucide-react';
 
 import { supabase } from '@/api/supabase';
+import { Helmet } from 'react-helmet-async';
+import { BASE_URL } from '@/api/api';
 
 export default function Settings() {
   const [userId, setUserId] = useState(localStorage.getItem('disperser_user_id') || '');
@@ -14,6 +16,7 @@ export default function Settings() {
   const [saved, setSaved] = useState(false);
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [statusMsg, setStatusMsg] = useState('');
+
 
   // Fetch from Supabase on load
   useEffect(() => {
@@ -55,7 +58,7 @@ export default function Settings() {
       const { id } = JSON.parse(storedUser);
 
       // 1. Validate API Key with Backend first
-      const validationRes = await fetch(`http://localhost:5001/api/roblox/validate-key`, {
+      const validationRes = await fetch(`${BASE_URL}/api/roblox/validate-key`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ apiKey })
@@ -105,6 +108,9 @@ export default function Settings() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
+      <Helmet>
+        <title>Settings | Disperser Studio</title>
+      </Helmet>
       <div className="page-header">
         <h1 className="page-title">Settings</h1>
         <p className="page-desc">Manage your Roblox credentials and application preferences.</p>

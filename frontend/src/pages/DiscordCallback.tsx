@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Loader2, CheckCircle2, AlertCircle, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { api, BASE_URL } from '../api/api';
 
 export default function DiscordCallback() {
   const [searchParams] = useSearchParams();
@@ -22,7 +23,7 @@ export default function DiscordCallback() {
 
     const verifyDiscord = async () => {
       try {
-        const response = await fetch('http://localhost:5001/api/discord/callback', {
+        const response = await fetch(`${BASE_URL}/api/discord/callback`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
