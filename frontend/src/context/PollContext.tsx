@@ -77,7 +77,6 @@ export const PollProvider = ({ children }: { children: React.ReactNode }) => {
 
         if (isOperation) {
           const res = await api.checkOperation(resourceId!);
-          console.log(`[DEBUG] Poll Item:${id} Operation Response:`, res);
 
           if (!res.success) {
             addLog(`[Item:${id}] Operation check failed: ${res.error}`, 'error');
@@ -97,7 +96,6 @@ export const PollProvider = ({ children }: { children: React.ReactNode }) => {
             || op.path?.replace('assets/', '');
 
           const isDone = op.done === true || op.done === 'true' || !!op.response || !!op.error || !!assetId;
-          console.log(`[DEBUG] Poll Item:${id} isDone: ${isDone}, assetId: ${assetId}`);
 
           if (!isDone) return;
 
@@ -126,16 +124,11 @@ export const PollProvider = ({ children }: { children: React.ReactNode }) => {
         // Check moderation
         addLog(`[Item:${id}] Checking moderation status for asset: ${assetId}`, 'info');
         const metaRes = await api.getAssetMeta(assetId!);
-        console.log(`[DEBUG] Poll Item:${id} Raw getAssetMeta response:`, metaRes);
 
         const robloxData = metaRes?.metadata || metaRes?.data || metaRes;
         const moderationResult = robloxData?.moderationResult || robloxData?.moderation_result;
 
-        console.log(`[DEBUG] Poll Item:${id} Extracted Roblox Data:`, robloxData);
-        console.log(`[DEBUG] Poll Item:${id} Extracted Moderation Result:`, moderationResult);
-
         const moderationState = (moderationResult?.moderationState || moderationResult?.moderation_state || '').trim().toLowerCase();
-        console.log(`[DEBUG] Poll Item:${id} Final moderationState: "${moderationState}"`);
 
         addLog(`[Item:${id}] Moderation state detected: "${moderationState || 'unknown'}"`, 'info');
 
@@ -151,16 +144,15 @@ export const PollProvider = ({ children }: { children: React.ReactNode }) => {
           clearInterval(polls.current[id]);
           delete polls.current[id];
           await api.updateItem(id, { status: 'rejected', errorMessage: 'Rejected by Roblox Moderation', assetId });
+          await api.deleteFileOnly(id);
           updateItemLocal(id, { status: 'rejected', errorMessage: 'Rejected by Roblox Moderation', assetId });
           addLog(`[Item:${id}] Rejected by Roblox.`, 'error');
         } else if (moderationState === 'reviewing' || moderationState === 'moderation_state_reviewing') {
           updateItemLocal(id, { status: 'reviewing', assetId });
         } else {
-          console.log(`[DEBUG] Poll Item:${id} No matching state found, keeping as processing...`);
           updateItemLocal(id, { assetId });
         }
       } catch (e: any) {
-        console.error(`[DEBUG] Poll Item:${id} Exception in poll:`, e);
         addLog(`[Item:${id}] Error during poll: ${e.message}`, 'error');
       }
     }, 20000);

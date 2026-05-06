@@ -39,15 +39,15 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick }) => {
 
       {/* Hero Section */}
       <section className="relative pt-32 pb-40 px-8 overflow-hidden">
-        <div className="max-w-4xl mx-auto text-center relative z-10">
+        <div className="max-w-5xl mx-auto text-center relative z-10">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-[10px] uppercase font-black tracking-[0.2em] mb-10">
             <Zap size={12} />
             <span>Fast, Simple and Cheap</span>
           </div>
           <h1 className="text-6xl md:text-8xl font-black tracking-tighter mb-10 leading-[0.9] text-white">
-            The Ultimate <br />
-            <span className="bg-gradient-to-r from-cyan-400 via-blue-500 to-emerald-400 bg-clip-text text-transparent">Roblox Asset</span> <br />
-            Preparation Tool
+            Simplify- <br />
+            <span className="bg-gradient-to-r from-cyan-400 via-blue-500 to-emerald-400 bg-clip-text text-transparent">Uploading Audio</span> <br />
+            With One All Package.
           </h1>
           <p className="text-xl text-slate-400 mb-14 max-w-2xl mx-auto font-medium leading-relaxed">
             Import from YouTube, edit in-browser, and bulk-upload assets to Roblox effortlessly.
@@ -110,7 +110,102 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick }) => {
         </div>
       </section>
 
-      {/* CTA Section */}
+      {/* Pricing Section */}
+      <section id="pricing" className="px-8 py-32 relative">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-20">
+            <h2 className="text-4xl md:text-5xl font-black mb-4 tracking-tight">Simple, Transparent Pricing</h2>
+            <p className="text-slate-500 font-medium">Choose the plan that fits your studio's needs.</p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-8 items-start">
+            {/* Free Plan */}
+            <div className="p-10 rounded-[2.5rem] bg-slate-900/20 border border-slate-800/50 backdrop-blur-sm relative group transition-all">
+              <div className="mb-8">
+                <h3 className="text-xl font-bold text-slate-400 mb-2">Free Plan</h3>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-4xl font-black">Rp 0</span>
+                  <span className="text-slate-500 font-medium">/ forever</span>
+                </div>
+              </div>
+
+              <div className="space-y-4 mb-10">
+                {[
+                  "Realtime Update Status Asset",
+                  "Single Import",
+                  "Optimized Audio Enhanced",
+                  "Audio Editor Tool",
+                  "Single Upload",
+                  "Limit / day : 3 Uploads"
+                ].map((benefit, i) => (
+                  <div key={i} className="flex items-center gap-3 text-slate-400">
+                    <div className="w-5 h-5 rounded-full bg-slate-800/50 flex items-center justify-center shrink-0">
+                      <Zap size={10} className="text-slate-500" />
+                    </div>
+                    <span className="text-sm font-medium">{benefit}</span>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                onClick={onLoginClick}
+                className="w-full py-4 rounded-2xl bg-slate-800 text-white font-bold hover:bg-slate-700 transition-all active:scale-95"
+              >
+                Get Started
+              </button>
+            </div>
+
+            {/* Pro Plan */}
+            <div className="p-10 rounded-[2.5rem] bg-gradient-to-b from-slate-900/40 to-cyan-500/5 border-2 border-cyan-500/20 backdrop-blur-md relative group transition-all shadow-2xl shadow-cyan-500/5">
+              <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-[10px] font-black uppercase tracking-widest px-4 py-1.5 rounded-full shadow-lg shadow-cyan-500/20">
+                Most Popular
+              </div>
+
+              <div className="mb-8">
+                <div className="flex items-center gap-2 mb-2">
+                  <h3 className="text-xl font-bold text-cyan-400">Pro Plan</h3>
+                  <div className="bg-cyan-500/10 px-2 py-0.5 rounded text-[10px] font-bold text-cyan-400 uppercase tracking-tight">Best Value</div>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-4xl font-black text-white">Rp 249.000</span>
+                  <span className="text-slate-500 font-medium text-sm">/ month</span>
+                  <span className="text-slate-500 line-through text-xs ml-auto">Rp 499.000</span>
+                </div>
+                <p className="text-cyan-500/60 text-xs font-bold mt-1">Limited time offer: Save 50%</p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 mb-10">
+                {[
+                  "Realtime update status asset",
+                  "Optimized Audio Enhanced",
+                  "Single Import (youtube / local files )",
+                  "Bulk Imports (youtube / local files )",
+                  "Audio Editor Tool",
+                  "Bulk Audio Editor",
+                  "Bulk Uploads",
+                  "Unlimited Uploads",
+                  "Priority Queue Download",
+                  "Auto Collab to Group / User ( Soon )"
+                ].map((benefit, i) => (
+                  <div key={i} className="flex items-center gap-3 text-white">
+                    <div className="w-5 h-5 rounded-full bg-cyan-500/10 flex items-center justify-center shrink-0">
+                      <Zap size={10} className="text-cyan-400" />
+                    </div>
+                    <span className="text-sm font-bold">{benefit}</span>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                onClick={onLoginClick}
+                className="w-full py-4 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-black hover:opacity-90 transition-all active:scale-95 shadow-xl shadow-cyan-500/20"
+              >
+                Upgrade to Pro
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
       <section className="px-8 py-40 relative">
         <div className="max-w-5xl mx-auto rounded-[3.5rem] bg-[#0c1014] border border-slate-800 p-16 md:p-24 text-center relative overflow-hidden shadow-2xl">
           <div className="absolute -top-32 -right-32 w-80 h-80 bg-emerald-500/5 blur-[100px] rounded-full" />

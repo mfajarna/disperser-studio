@@ -99,6 +99,49 @@ app.post('/api/payment/duitku-callback', async (req, res) => {
   }
 });
 
+// --- Roblox Key Validation ---
+app.post('/api/roblox/validate-key', async (req, res) => {
+  const { apiKey } = req.body;
+  
+  if (!apiKey) {
+    return res.status(400).json({ success: false, error: 'API Key is required' });
+  }
+
+  try {
+    // Try to get a specific asset metadata. ID '1' is used as a test.
+    // This endpoint is guaranteed to check the API Key first.
+    const response = await fetch('https://apis.roblox.com/assets/v1/assets/1', {
+      method: 'GET',
+      headers: { 'x-api-key': apiKey }
+    });
+
+    if (response.status === 401) {
+      return res.status(401).json({ success: false, error: 'Invalid API Key (Unauthorized)' });
+    }
+
+    if (response.status === 403) {
+      const data = await response.json().catch(() => ({}));
+      return res.status(403).json({ 
+        success: false, 
+        error: data.message || 'Access Forbidden: Ensure your IP is whitelisted and Assets API (Read) permission is added.' 
+      });
+    }
+
+    // If we get 200 (Asset found) or 404 (Asset not found), the key is AUTHENTICATED.
+    // 404 here means the path is valid but the specific asset 1 is not in the creator's scope or doesn't exist.
+    // But importantly, 404 on this path ONLY happens if the key passed authentication.
+    if (!response.ok && response.status !== 404) {
+      const data = await response.json().catch(() => ({}));
+      return res.status(response.status).json({ success: false, error: data.message || `Roblox API Error: ${response.status}` });
+    }
+
+    res.json({ success: true, message: 'API Key is valid and authenticated' });
+  } catch (error: any) {
+    console.error('Key validation error:', error);
+    res.status(500).json({ success: false, error: 'Server error during validation' });
+  }
+});
+
 // --- Roblox API Endpoints ---
 
 app.post('/api/roblox/upload', upload.single('file'), async (req, res) => {
@@ -125,11 +168,12 @@ app.post('/api/roblox/upload', upload.single('file'), async (req, res) => {
           return res.status(403).json({ success: false, error: 'Limit harian habis (3/3). Upgrade ke Pro Plan untuk upload sepuasnya!' });
         }
         
-        // Update DB
+        // PRE-INCREMENT
         await supabase.from('users').update({
           uploads_today: currentUploads + 1,
           last_upload_date: new Date().toISOString()
         }).eq('id', supabaseUserId);
+        
       }
     }
 
@@ -161,6 +205,14 @@ app.post('/api/roblox/upload', upload.single('file'), async (req, res) => {
     const data = await response.json();
 
     if (!response.ok) {
+      // DECREMENT ON FAILURE
+      if (supabaseUserId) {
+        const { data: user } = await supabase.from('users').select('current_role, uploads_today').eq('id', supabaseUserId).single();
+        if (user && user.current_role === 'Free' && (user.uploads_today || 0) > 0) {
+          await supabase.from('users').update({ uploads_today: user.uploads_today - 1 }).eq('id', supabaseUserId);
+        }
+      }
+
       console.error('❌ Roblox API Error Response:', JSON.stringify(data, null, 2));
       throw new Error(data.message || `Roblox API Error: ${response.status} ${response.statusText}`);
     }
@@ -168,6 +220,14 @@ app.post('/api/roblox/upload', upload.single('file'), async (req, res) => {
     console.log('✅ Roblox Upload Successful:', data.path || data.id || 'Operation Created');
     res.json({ success: true, operation: data });
   } catch (error) {
+    // DECREMENT ON EXCEPTION
+    if (supabaseUserId) {
+      const { data: user } = await supabase.from('users').select('current_role, uploads_today').eq('id', supabaseUserId).single();
+      if (user && user.current_role === 'Free' && (user.uploads_today || 0) > 0) {
+        await supabase.from('users').update({ uploads_today: user.uploads_today - 1 }).eq('id', supabaseUserId);
+      }
+    }
+
     console.error('❌ Internal Server Error during upload:', error);
     res.status(500).json({ success: false, error: error.message });
   }
@@ -195,11 +255,12 @@ app.post('/api/roblox/upload-from-url', async (req, res) => {
           return res.status(403).json({ success: false, error: 'Limit harian habis (3/3). Upgrade ke Pro Plan untuk upload sepuasnya!' });
         }
         
-        // Update DB
+        // PRE-INCREMENT
         await supabase.from('users').update({
           uploads_today: currentUploads + 1,
           last_upload_date: new Date().toISOString()
         }).eq('id', supabaseUserId);
+        
       }
     }
 
@@ -234,11 +295,27 @@ app.post('/api/roblox/upload-from-url', async (req, res) => {
     });
 
     const data = await response.json();
-    if (!response.ok) throw new Error(data.message || 'Roblox API Error');
+    if (!response.ok) {
+      // DECREMENT ON FAILURE
+      if (supabaseUserId) {
+        const { data: user } = await supabase.from('users').select('current_role, uploads_today').eq('id', supabaseUserId).single();
+        if (user && user.current_role === 'Free' && (user.uploads_today || 0) > 0) {
+          await supabase.from('users').update({ uploads_today: user.uploads_today - 1 }).eq('id', supabaseUserId);
+        }
+      }
+      throw new Error(data.message || 'Roblox API Error');
+    }
 
     console.log('✅ Roblox Stream Successful');
     res.json({ success: true, operation: data });
   } catch (error) {
+    // DECREMENT ON EXCEPTION
+    if (supabaseUserId) {
+      const { data: user } = await supabase.from('users').select('current_role, uploads_today').eq('id', supabaseUserId).single();
+      if (user && user.current_role === 'Free' && (user.uploads_today || 0) > 0) {
+        await supabase.from('users').update({ uploads_today: user.uploads_today - 1 }).eq('id', supabaseUserId);
+      }
+    }
     console.error('❌ Stream Error:', error);
     res.status(500).json({ success: false, error: error.message });
   }

@@ -95,14 +95,10 @@ export default function AudioStudio() {
   } = useBulkUpload();
 
   const handleSaveAll = async () => {
-    console.log('[DEBUG] AudioStudio: handleSaveAll triggered');
     try {
       await originalSaveAll();
-      console.log('[DEBUG] AudioStudio: originalSaveAll finished');
     } catch (e) {
-      console.error('[DEBUG] AudioStudio: originalSaveAll failed', e);
     } finally {
-      console.log('[DEBUG] AudioStudio: Redirecting to library...');
       await refresh();
       navigate('/dashboard/library');
     }
@@ -213,8 +209,8 @@ export default function AudioStudio() {
         start: 0,
         end: d,
         color: 'rgba(6, 182, 212, 0.12)',
-        drag: currentRole !== 'Free',
-        resize: currentRole !== 'Free'
+        drag: true,
+        resize: true
       });
       // Auto-populate name if not already set
       if (!assetName || assetName === 'YouTube Audio') {
@@ -303,7 +299,7 @@ export default function AudioStudio() {
     // Validate asset name
     const result = assetSchema.safeParse({ name: assetName });
     if (!result.success) {
-      setNameError((result.error as any).errors[0].message);
+      setNameError(result.error.issues[0]?.message || 'Invalid asset name');
       return;
     }
     setNameError('');
@@ -347,13 +343,9 @@ export default function AudioStudio() {
       setAssetName('');
       setYtUrl('');
       setHistory(await api.getHistory());
-
-      console.log('[DEBUG] AudioStudio: Single save successful');
     } catch (e: any) {
-      console.error('[DEBUG] AudioStudio: Single save failed', e);
       setSaveError('Processing failed: ' + e.message);
     } finally {
-      console.log('[DEBUG] AudioStudio: Refreshing & Redirecting...');
       await refresh();
       navigate('/dashboard/library');
       setLoading(false);
@@ -498,7 +490,7 @@ export default function AudioStudio() {
               {currentRole === 'Free' && (
                 <div className="mb-6 flex items-center gap-2 text-xs text-yellow-500 bg-yellow-500/10 p-3 rounded-lg border border-yellow-500/20">
                   <AlertCircle size={14} />
-                  <span>Anda menggunakan <b>Free Plan</b>. Anda memiliki batasan maksimal <b>3 kali Upload/Import per hari</b>. Upgrade ke <a href="#" onClick={(e) => { e.preventDefault(); document.getElementById('buy-sub-discord')?.click(); }} className="underline font-bold text-yellow-400">Pro Plan</a> untuk menghilangkan batasan ini.</span>
+                  <span>You are using the <b>Free Plan</b>. You have a maximum limit of <b>3 Uploads/Imports per day</b>. Upgrade to <a href="#" onClick={(e) => { e.preventDefault(); document.getElementById('buy-sub-discord')?.click(); }} className="underline font-bold text-yellow-400">Pro Plan</a> to remove this limit.</span>
                 </div>
               )}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -580,130 +572,130 @@ export default function AudioStudio() {
                   </div>
                   <h3 className="text-xl font-bold text-white">Pro Plan Exclusive</h3>
                   <p className="text-slate-400 max-w-md mx-auto">
-                    Bulk Import memungkinkan Anda mengunggah puluhan file atau URL YouTube sekaligus secara otomatis. Fitur ini eksklusif untuk pengguna <b>Pro Plan</b>.
+                    Bulk Import allows you to upload dozens of files or YouTube URLs simultaneously. This feature is exclusive to <b>Pro Plan</b> users.
                   </p>
-                  <Button 
-                    onClick={() => document.getElementById('buy-sub-discord')?.click()} 
+                  <Button
+                    onClick={() => document.getElementById('buy-sub-discord')?.click()}
                     className="mt-4 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white gap-2"
                   >
-                    <Crown size={16} /> Upgrade via Discord (Rp 249k)
+                    <Crown size={16} /> Upgrade via Discord
                   </Button>
                 </Card>
               ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* YouTube Bulk */}
-                <Card className="bg-slate-900/40 border-slate-800 p-6 flex flex-col gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center">
-                      <Youtube size={22} className="text-red-400" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-white">YouTube Bulk Upload</h3>
-                      <p className="text-xs text-slate-500">Paste multiple links, one per line</p>
-                    </div>
-                  </div>
-                  <textarea
-                    className="flex-1 min-h-[160px] bg-slate-950 border border-slate-800 rounded-lg p-3 text-xs text-slate-300 font-mono focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 outline-none resize-none"
-                    placeholder="https://youtube.com/watch?v=link1&#10;https://youtube.com/watch?v=link2&#10;https://youtube.com/watch?v=link3"
-                    value={bulkYtUrls}
-                    onChange={(e) => setBulkYtUrls(e.target.value)}
-                  />
-                  <Button
-                    onClick={handleBulkYoutubeAdd}
-                    disabled={!bulkYtUrls.trim()}
-                    className="bg-red-600 hover:bg-red-500 gap-2"
-                  >
-                    Add to Queue
-                  </Button>
-                </Card>
-
-                {/* Local Bulk */}
-                <div className="space-y-6">
-                  <label className="cursor-pointer block">
-                    <Card className="bg-slate-900/40 border-slate-800 border-dashed p-10 hover:border-cyan-500/30 hover:bg-slate-900/60 transition-all text-center gap-4 group flex flex-col items-center justify-center">
-                      <div className="w-14 h-14 rounded-2xl bg-slate-800/50 flex items-center justify-center group-hover:bg-cyan-500/10 transition-colors">
-                        <Upload size={24} className="text-slate-500 group-hover:text-cyan-400 transition-colors" />
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* YouTube Bulk */}
+                  <Card className="bg-slate-900/40 border-slate-800 p-6 flex flex-col gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center">
+                        <Youtube size={22} className="text-red-400" />
                       </div>
                       <div>
-                        <h3 className="font-bold text-white">Bulk File Upload</h3>
-                        <p className="text-xs text-slate-500 mt-1">Select multiple files at once</p>
+                        <h3 className="font-bold text-white">YouTube Bulk Upload</h3>
+                        <p className="text-xs text-slate-500">Paste multiple links, one per line</p>
                       </div>
-                      <input
-                        type="file"
-                        accept="audio/*"
-                        multiple
-                        hidden
-                        onChange={handleBulkFilesAdd}
-                      />
-                    </Card>
-                  </label>
+                    </div>
+                    <textarea
+                      className="flex-1 min-h-[160px] bg-slate-950 border border-slate-800 rounded-lg p-3 text-xs text-slate-300 font-mono focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 outline-none resize-none"
+                      placeholder="https://youtube.com/watch?v=link1&#10;https://youtube.com/watch?v=link2&#10;https://youtube.com/watch?v=link3"
+                      value={bulkYtUrls}
+                      onChange={(e) => setBulkYtUrls(e.target.value)}
+                    />
+                    <Button
+                      onClick={handleBulkYoutubeAdd}
+                      disabled={!bulkYtUrls.trim()}
+                      className="bg-red-600 hover:bg-red-500 gap-2"
+                    >
+                      Add to Queue
+                    </Button>
+                  </Card>
 
-                  {/* Bulk Queue Display */}
-                  {bulkQueue.length > 0 && (
-                    <Card className="bg-slate-900/60 border-slate-800 p-4">
-                      <div className="flex items-center justify-between mb-4 border-b border-slate-800 pb-3">
-                        <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                          <Zap size={14} className="text-cyan-400" /> Bulk Queue ({bulkQueue.length})
-                        </h3>
-                        <Button
-                          size="sm"
-                          onClick={processBulkQueue}
-                          disabled={isBulkProcessing || bulkQueue.every(i => i.status === 'success')}
-                          className="bg-cyan-600 hover:bg-cyan-500 h-8 gap-2"
-                        >
-                          {isBulkProcessing ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
-                          <span>Process All</span>
-                        </Button>
-                      </div>
-                      <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
-                        {bulkQueue.map((item) => (
-                          <div key={item.id} className="flex items-center justify-between bg-slate-950 p-2 px-3 rounded-lg border border-slate-800/50">
-                            <div className="flex items-center gap-3 truncate">
-                              {item.type === 'youtube' ? <Youtube size={14} className="text-red-400" /> : <FileAudio size={14} className="text-cyan-400" />}
-                              <div className="truncate">
-                                <div className="text-xs text-white truncate max-w-[150px]">{item.name}</div>
-                                {item.status === 'error' && <div className="text-[10px] text-red-400 truncate">{item.error}</div>}
+                  {/* Local Bulk */}
+                  <div className="space-y-6">
+                    <label className="cursor-pointer block">
+                      <Card className="bg-slate-900/40 border-slate-800 border-dashed p-10 hover:border-cyan-500/30 hover:bg-slate-900/60 transition-all text-center gap-4 group flex flex-col items-center justify-center">
+                        <div className="w-14 h-14 rounded-2xl bg-slate-800/50 flex items-center justify-center group-hover:bg-cyan-500/10 transition-colors">
+                          <Upload size={24} className="text-slate-500 group-hover:text-cyan-400 transition-colors" />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-white">Bulk File Upload</h3>
+                          <p className="text-xs text-slate-500 mt-1">Select multiple files at once</p>
+                        </div>
+                        <input
+                          type="file"
+                          accept="audio/*"
+                          multiple
+                          hidden
+                          onChange={handleBulkFilesAdd}
+                        />
+                      </Card>
+                    </label>
+
+                    {/* Bulk Queue Display */}
+                    {bulkQueue.length > 0 && (
+                      <Card className="bg-slate-900/60 border-slate-800 p-4">
+                        <div className="flex items-center justify-between mb-4 border-b border-slate-800 pb-3">
+                          <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                            <Zap size={14} className="text-cyan-400" /> Bulk Queue ({bulkQueue.length})
+                          </h3>
+                          <Button
+                            size="sm"
+                            onClick={processBulkQueue}
+                            disabled={isBulkProcessing || bulkQueue.every(i => i.status === 'success')}
+                            className="bg-cyan-600 hover:bg-cyan-500 h-8 gap-2"
+                          >
+                            {isBulkProcessing ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
+                            <span>Process All</span>
+                          </Button>
+                        </div>
+                        <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
+                          {bulkQueue.map((item) => (
+                            <div key={item.id} className="flex items-center justify-between bg-slate-950 p-2 px-3 rounded-lg border border-slate-800/50">
+                              <div className="flex items-center gap-3 truncate">
+                                {item.type === 'youtube' ? <Youtube size={14} className="text-red-400" /> : <FileAudio size={14} className="text-cyan-400" />}
+                                <div className="truncate">
+                                  <div className="text-xs text-white truncate max-w-[150px]">{item.name}</div>
+                                  {item.status === 'error' && <div className="text-[10px] text-red-400 truncate">{item.error}</div>}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                {item.status === 'pending' && <Clock size={14} className="text-slate-600" />}
+                                {item.status === 'loading' && <Loader2 size={14} className="text-cyan-400 animate-spin" />}
+                                {item.status === 'success' && !isBulkProcessing && (
+                                  <button
+                                    onClick={() => {
+                                      const idx = bulkQueue.indexOf(item);
+                                      setEditingIndex(idx);
+                                      setAssetName(item.name);
+                                    }}
+                                    className="flex items-center gap-1.5 px-2 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-md hover:bg-emerald-500/20 transition-all text-[10px] font-bold"
+                                  >
+                                    <Scissors size={12} /> EDIT
+                                  </button>
+                                )}
+                                {item.status === 'error' && <AlertCircle size={14} className="text-red-400" />}
+                                <button
+                                  onClick={() => removeFromBulkQueue(item.id)}
+                                  disabled={isBulkProcessing}
+                                  className="text-slate-600 hover:text-red-400 transition-colors ml-1"
+                                >
+                                  <X size={14} />
+                                </button>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              {item.status === 'pending' && <Clock size={14} className="text-slate-600" />}
-                              {item.status === 'loading' && <Loader2 size={14} className="text-cyan-400 animate-spin" />}
-                              {item.status === 'success' && !isBulkProcessing && (
-                                <button
-                                  onClick={() => {
-                                    const idx = bulkQueue.indexOf(item);
-                                    setEditingIndex(idx);
-                                    setAssetName(item.name);
-                                  }}
-                                  className="flex items-center gap-1.5 px-2 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-md hover:bg-emerald-500/20 transition-all text-[10px] font-bold"
-                                >
-                                  <Scissors size={12} /> EDIT
-                                </button>
-                              )}
-                              {item.status === 'error' && <AlertCircle size={14} className="text-red-400" />}
-                              <button
-                                onClick={() => removeFromBulkQueue(item.id)}
-                                disabled={isBulkProcessing}
-                                className="text-slate-600 hover:text-red-400 transition-colors ml-1"
-                              >
-                                <X size={14} />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </Card>
-                  )}
+                          ))}
+                        </div>
+                      </Card>
+                    )}
+                  </div>
                 </div>
-              </div>
               )}
             </TabsContent>
           </Tabs>
 
           {/* Tips */}
           <div className="bg-slate-900/20 border border-slate-800/50 rounded-xl p-4 flex items-start gap-3">
-            <Sparkles size={16} className="text-cyan-400 mt-1.5 shrink-0" />
-            <p className="text-ml text-slate-500 leading-relaxed">
+            <Sparkles size={13} className="text-cyan-400 mt-1.5 shrink-0" />
+            <p className="text-sm text-slate-500 leading-relaxed">
               <span className="text-slate-400 font-medium">Pro tip:</span> For best results on Roblox,
               keep your audio under 7 minutes and ensure the final volume isn't too loud (stay under 150%).
               Roblox supports audio up to 7 minutes for free accounts.
@@ -823,15 +815,9 @@ export default function AudioStudio() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      {currentRole === 'Free' ? (
-                        <Badge variant="secondary" className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20 gap-1 text-[10px]">
-                          <Crown size={10} /> Trim Locked (Pro)
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary" className="bg-cyan-500/10 text-cyan-400 border-cyan-500/20 gap-1 text-[10px]">
-                          <Scissors size={10} /> Drag edges to trim
-                        </Badge>
-                      )}
+                      <Badge variant="secondary" className="bg-cyan-500/10 text-cyan-400 border-cyan-500/20 gap-1 text-[10px]">
+                        <Scissors size={10} /> Drag edges to trim
+                      </Badge>
                     </div>
                   </div>
 
@@ -843,50 +829,47 @@ export default function AudioStudio() {
                   {/* Audio Controls Grid */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     {/* Volume */}
-                    <div className={`space-y-3 rounded-xl p-4 border ${currentRole === 'Free' ? 'bg-slate-900/10 border-slate-800/30 opacity-60 pointer-events-none relative' : 'bg-slate-900/30 border-slate-800/50'}`}>
-                      {currentRole === 'Free' && <Crown size={16} className="absolute top-4 right-4 text-yellow-500/50" />}
+                    <div className="space-y-3 rounded-xl p-4 border bg-slate-900/30 border-slate-800/50">
                       <div className="flex items-center justify-between">
                         <label className="text-xs font-bold text-slate-400 uppercase flex items-center gap-2">
                           <Volume2 size={14} className="text-cyan-400" /> Volume
                         </label>
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-md">{Math.round(volume * 100)}%</span>
-                          <button onClick={() => resetControl('volume')} className="text-[10px] text-slate-600 hover:text-slate-400 transition-colors" disabled={currentRole === 'Free'}>Reset</button>
+                          <button onClick={() => resetControl('volume')} className="text-[10px] text-slate-600 hover:text-slate-400 transition-colors">Reset</button>
                         </div>
                       </div>
-                      <Slider disabled={currentRole === 'Free'} value={[volume * 100]} max={200} step={1} onValueChange={(v) => setVolume(v[0] / 100)} />
+                      <Slider value={[volume * 100]} max={200} step={1} onValueChange={(v) => setVolume(v[0] / 100)} />
                       <p className="text-[10px] text-slate-600">Adjust output loudness (0% – 200%)</p>
                     </div>
 
                     {/* Speed */}
-                    <div className={`space-y-3 rounded-xl p-4 border ${currentRole === 'Free' ? 'bg-slate-900/10 border-slate-800/30 opacity-60 pointer-events-none relative' : 'bg-slate-900/30 border-slate-800/50'}`}>
-                      {currentRole === 'Free' && <Crown size={16} className="absolute top-4 right-4 text-yellow-500/50" />}
+                    <div className="space-y-3 rounded-xl p-4 border bg-slate-900/30 border-slate-800/50">
                       <div className="flex items-center justify-between">
                         <label className="text-xs font-bold text-slate-400 uppercase flex items-center gap-2">
                           <Zap size={14} className="text-cyan-400" /> Speed
                         </label>
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-md">{speed.toFixed(1)}x</span>
-                          <button onClick={() => resetControl('speed')} className="text-[10px] text-slate-600 hover:text-slate-400 transition-colors" disabled={currentRole === 'Free'}>Reset</button>
+                          <button onClick={() => resetControl('speed')} className="text-[10px] text-slate-600 hover:text-slate-400 transition-colors">Reset</button>
                         </div>
                       </div>
-                      <Slider disabled={currentRole === 'Free'} value={[speed * 10]} min={5} max={30} step={1} onValueChange={(v) => setSpeed(v[0] / 10)} />
+                      <Slider value={[speed * 10]} min={5} max={30} step={1} onValueChange={(v) => setSpeed(v[0] / 10)} />
                       <p className="text-[10px] text-slate-600">Playback rate (0.5x – 3.0x)</p>
                     </div>
 
                     {/* Pitch */}
-                    <div className={`space-y-3 rounded-xl p-4 border ${currentRole === 'Free' ? 'bg-slate-900/10 border-slate-800/30 opacity-60 pointer-events-none relative' : 'bg-slate-900/30 border-slate-800/50'}`}>
-                      {currentRole === 'Free' && <Crown size={16} className="absolute top-4 right-4 text-yellow-500/50" />}
+                    <div className="space-y-3 rounded-xl p-4 border bg-slate-900/30 border-slate-800/50">
                       <div className="flex items-center justify-between">
                         <label className="text-xs font-bold text-slate-400 uppercase flex items-center gap-2">
                           <Activity size={14} className="text-cyan-400" /> Pitch Shift
                         </label>
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-md">{pitch > 0 ? '+' : ''}{pitch}%</span>
-                          <button onClick={() => resetControl('pitch')} className="text-[10px] text-slate-600 hover:text-slate-400 transition-colors" disabled={currentRole === 'Free'}>Reset</button>
+                          <button onClick={() => resetControl('pitch')} className="text-[10px] text-slate-600 hover:text-slate-400 transition-colors">Reset</button>
                         </div>
                       </div>
-                      <Slider disabled={currentRole === 'Free'} value={[pitch + 100]} min={0} max={200} step={1} onValueChange={(v) => setPitch(v[0] - 100)} />
+                      <Slider value={[pitch + 100]} min={0} max={200} step={1} onValueChange={(v) => setPitch(v[0] - 100)} />
                       <p className="text-[10px] text-slate-600">Pitch adjustment (-100% to +100%)</p>
                     </div>
                   </div>
@@ -922,11 +905,10 @@ export default function AudioStudio() {
                       <Button
                         variant="outline"
                         size="sm"
-                        disabled={currentRole === 'Free'}
                         onClick={() => { setVolume(0.05); setSpeed(2.3); }}
                         className="bg-cyan-500/10 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 gap-2 h-9"
                       >
-                        {currentRole === 'Free' ? <Crown size={14} className="text-yellow-500" /> : <Sparkles size={14} />} Auto Optimize
+                        <Sparkles size={14} /> Auto Optimize
                       </Button>
                       <div className="flex gap-2">
                         <Button

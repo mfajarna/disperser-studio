@@ -52,6 +52,7 @@ export default function AudioLibrary() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isBulkUploading, setIsBulkUploading] = useState(false);
   const [bulkProgress, setBulkProgress] = useState(0);
+  const hasConfig = localStorage.getItem('disperser_key') && localStorage.getItem('disperser_user_id');
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -80,6 +81,10 @@ export default function AudioLibrary() {
   }, [filteredItems, currentPage]);
 
   const handleUpload = async (id: string) => {
+    if (!hasConfig) {
+      addLog(`[Item:${id}] Upload failed: Roblox configuration (API Key/User ID) missing!`, 'error');
+      return;
+    }
     const item = items.find(i => i.id === id);
     if (!item) return;
 
@@ -230,6 +235,15 @@ export default function AudioLibrary() {
       </div>
 
       {/* Main Header & Search */}
+      {!hasConfig && (
+        <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 flex items-center gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
+          <AlertCircle className="text-amber-400 shrink-0" size={20} />
+          <p className="text-sm text-amber-200/80">
+            <span className="font-bold text-amber-400">Warning:</span> You haven't configured your Roblox API Key & User ID yet. Upload features will not work until setup is completed in the Settings menu.
+          </p>
+        </div>
+      )}
+
       <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-2xl backdrop-blur-sm space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>

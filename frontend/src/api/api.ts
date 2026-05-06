@@ -22,14 +22,14 @@ export const api = {
   async getHistory() {
     const list: any[] = [];
     await historyDb.iterate((val) => { list.push(val); });
-    // Keep only the 10 most recent
+    // Keep only the 5 most recent
     const sorted = list.sort((a, b) => b.createdAt - a.createdAt);
-    if (sorted.length > 10) {
-      const toRemove = sorted.slice(10);
+    if (sorted.length > 5) {
+      const toRemove = sorted.slice(5);
       for (const item of toRemove) {
         await historyDb.removeItem(item.id);
       }
-      return sorted.slice(0, 10);
+      return sorted.slice(0, 5);
     }
     return sorted;
   },
