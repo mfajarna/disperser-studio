@@ -432,10 +432,11 @@ app.post('/api/youtube/download', async (req, res) => {
 
     // Step 2: Download and convert to MP3
     await new Promise((resolve, reject) => {
-      // Use simpler format and clear cache
+      // Use Android client disguise for better bypass
       const finalArgs = [
         ...ytConfig.baseArgs,
-        '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        '--user-agent', 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+        '--extractor-args', 'youtube:player_client=android,web',
         '--rm-cache-dir',
         '--no-check-certificates',
         '--format', 'bestaudio/best',
