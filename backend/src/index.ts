@@ -357,7 +357,8 @@ app.get('/api/youtube/info', async (req, res) => {
 
   try {
     const result = await new Promise((resolve, reject) => {
-      execFile('/usr/local/bin/yt-dlp', [
+      execFile('python3', [
+        '/usr/local/bin/yt-dlp',
         '--print', '%(title)s',
         '--no-download',
         '--no-warnings',
@@ -385,7 +386,8 @@ app.post('/api/youtube/download', async (req, res) => {
   try {
     // Step 1: Get title and duration
     const info: any = await new Promise((resolve) => {
-      execFile('/usr/local/bin/yt-dlp', [
+      execFile('python3', [
+        '/usr/local/bin/yt-dlp',
         '--print', '%(title)s',
         '--print', '%(duration)s',
         '--no-download',
@@ -411,7 +413,8 @@ app.post('/api/youtube/download', async (req, res) => {
 
     // Step 2: Download and convert to MP3
     await new Promise((resolve, reject) => {
-      execFile('/usr/local/bin/yt-dlp', [
+      execFile('python3', [
+        '/usr/local/bin/yt-dlp',
         '-x',
         '--audio-format', 'mp3',
         '--audio-quality', '0',
