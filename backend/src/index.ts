@@ -22,11 +22,22 @@ const port = process.env.PORT || 5001;
 const cookiesPath = path.resolve(__dirname, '../cookies.txt');
 const hasCookies = fs.existsSync(cookiesPath);
 
+const ytProxy = process.env.YT_PROXY;
+
 const ytConfig = {
   executable: os.platform() === 'win32' ? 'yt-dlp' : 'python3',
   baseArgs: os.platform() === 'win32' 
-    ? (hasCookies ? ['--cookies', cookiesPath, '--no-check-certificates'] : ['--no-check-certificates']) 
-    : ['/usr/local/bin/yt-dlp', '--force-ipv4', '--no-check-certificates', ...(hasCookies ? ['--cookies', cookiesPath] : [])]
+    ? [
+        ...(hasCookies ? ['--cookies', cookiesPath, '--no-check-certificates'] : ['--no-check-certificates']),
+        ...(ytProxy ? ['--proxy', ytProxy] : [])
+      ] 
+    : [
+        '/usr/local/bin/yt-dlp', 
+        '--force-ipv4', 
+        '--no-check-certificates', 
+        ...(hasCookies ? ['--cookies', cookiesPath] : []),
+        ...(ytProxy ? ['--proxy', ytProxy] : [])
+      ]
 };
 
 if (hasCookies) {
