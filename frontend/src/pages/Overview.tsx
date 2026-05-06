@@ -1,17 +1,54 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Music, Image as ImageIcon, CheckCircle, Clock, AlertCircle, MessageSquare } from 'lucide-react';
+import { Music, Image as ImageIcon, CheckCircle, Clock, AlertCircle, MessageSquare, Shield, Crown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { api } from '../api/api';
+import { supabase } from '../api/supabase';
 
 export default function Overview() {
-  const user = JSON.parse(localStorage.getItem('disperser_user') || '{}');
+  const userStr = localStorage.getItem('disperser_user');
+  const user = userStr ? JSON.parse(userStr) : {};
   const username = user.username || 'Creator';
+  const [currentRole, setCurrentRole] = useState(user.current_role || 'Free');
+  const [expireDate, setExpireDate] = useState(user.subscription_expires_at 
+    ? new Date(user.subscription_expires_at).toLocaleDateString('id-ID', { year: 'numeric', month: 'short', day: 'numeric' })
+    : '-');
+
+  const [totalAudios, setTotalAudios] = useState(0);
+  const [totalApproved, setTotalApproved] = useState(0);
+  const [totalPending, setTotalPending] = useState(0);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const data = await api.getQueue();
+      setTotalAudios(data.length);
+      setTotalApproved(data.filter((item: any) => item.status === 'success').length);
+      setTotalPending(data.filter((item: any) => item.status === 'pending' || item.status === 'processing').length);
+      
+      // Fetch latest user info
+      if (user.id) {
+        const { data: dbUser } = await supabase.from('users').select('current_role, subscription_expires_at').eq('id', user.id).single();
+        if (dbUser) {
+          setCurrentRole(dbUser.current_role);
+          const newExpireDate = dbUser.subscription_expires_at 
+            ? new Date(dbUser.subscription_expires_at).toLocaleDateString('id-ID', { year: 'numeric', month: 'short', day: 'numeric' })
+            : '-';
+          setExpireDate(newExpireDate);
+          
+          // Update localStorage
+          const updatedUser = { ...user, current_role: dbUser.current_role, subscription_expires_at: dbUser.subscription_expires_at };
+          localStorage.setItem('disperser_user', JSON.stringify(updatedUser));
+        }
+      }
+    };
+    fetchData();
+  }, []);
 
   const stats = [
-    { label: 'Total Audios', value: '124', icon: <Music className="text-cyan-400" />, trend: '+12% this week' },
-    { label: 'Total Images', value: '42', icon: <ImageIcon className="text-blue-400" />, trend: '+5% this week' },
-    { label: 'Approved Assets', value: '160', icon: <CheckCircle className="text-emerald-400" />, trend: '96% success rate' },
-    { label: 'Pending Review', value: '6', icon: <Clock className="text-amber-400" />, trend: 'Avg. 2h wait' },
+    { label: 'Total Audios', value: totalAudios.toString(), icon: <Music className="text-cyan-400" />, trend: 'Uploaded assets' },
+    { label: 'Total Images', value: '0', icon: <ImageIcon className="text-blue-400" />, trend: 'Coming soon' },
+    { label: 'Approved Assets', value: totalApproved.toString(), icon: <CheckCircle className="text-emerald-400" />, trend: 'Ready on Roblox' },
+    { label: 'Pending/Processing', value: totalPending.toString(), icon: <Clock className="text-amber-400" />, trend: 'Awaiting moderation' },
   ];
 
   return (
@@ -45,9 +82,38 @@ export default function Overview() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
-        <Card className="lg:col-span-2 bg-slate-900/40 border-slate-800 border-dashed flex flex-col items-center justify-center p-12 text-center text-slate-500">
-          <AlertCircle size={48} className="mb-4 opacity-20" />
-          <p>Recent activity charts will be available once you start uploading assets.</p>
+        <Card className="lg:col-span-2 bg-slate-900/40 border-slate-800 p-8 flex flex-col justify-center relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-8 opacity-10">
+            <Crown size={120} />
+          </div>
+          <h2 className="text-2xl font-bold text-white flex items-center gap-2 mb-2">
+            <Shield className="text-cyan-400" /> Subscription Status
+          </h2>
+          <p className="text-slate-400 mb-8 max-w-md">Manage your account tier to unlock higher limits and faster processing speeds.</p>
+          
+          <div className="flex flex-col md:flex-row gap-6">
+            <div className="bg-slate-800/50 p-6 rounded-xl border border-slate-700/50 flex-1">
+              <div className="text-sm text-slate-400 mb-1">Current Tier</div>
+              <div className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">
+                {currentRole}
+              </div>
+            </div>
+            <div className="bg-slate-800/50 p-6 rounded-xl border border-slate-700/50 flex-1">
+              <div className="text-sm text-slate-400 mb-1">Expiration Date</div>
+              <div className="text-2xl font-bold text-white mt-1">
+                {currentRole === 'Free' ? 'Lifetime' : expireDate}
+              </div>
+            </div>
+          </div>
+
+          {currentRole === 'Free' && (
+             <div className="mt-6">
+               <p className="text-sm text-amber-400 mb-3">You are currently on the Free tier. Upgrade to unlock bulk actions and longer audio duration limits!</p>
+               <Button onClick={() => window.open('https://discord.gg/2dRtqgmKPR', '_blank')} className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold">
+                 Upgrade via Discord
+               </Button>
+             </div>
+          )}
         </Card>
 
         <Card className="bg-slate-900/40 border-slate-800 p-6 space-y-6 flex flex-col justify-between">
