@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { api } from '../api/api';
 import { usePollContext } from '../context/PollContext';
 import {
@@ -26,8 +26,6 @@ import {
   ChevronLeft,
   ChevronRight,
   CheckSquare,
-  Square,
-  Check,
   X
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -44,6 +42,10 @@ import {
 } from '@/components/ui/alert-dialog';
 
 export default function AudioLibrary() {
+  const userStr = localStorage.getItem('disperser_user');
+  const user = userStr ? JSON.parse(userStr) : {};
+  const currentRole = user.current_role || 'Free';
+
   const { items, loading, refresh, updateItemLocal, startPoll, logs, addLog, clearLogs } = usePollContext();
   const [search, setSearch] = useState('');
   const [uploadingIds, setUploadingIds] = useState<Set<string>>(new Set());
@@ -245,7 +247,7 @@ export default function AudioLibrary() {
                 className="pl-9 bg-slate-950 border-slate-800 focus-visible:ring-cyan-500/50"
               />
             </div>
-            <Button variant="outline" size="icon" onClick={refresh} disabled={loading} className="border-slate-800 bg-slate-950 hover:bg-slate-800">
+            <Button variant="outline" size="icon" onClick={() => refresh()} disabled={loading} className="border-slate-800 bg-slate-950 hover:bg-slate-800">
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             </Button>
           </div>
@@ -264,7 +266,7 @@ export default function AudioLibrary() {
                       paginatedItems.filter(i => i.status === 'pending' || i.status === 'error').every(i => selectedIds.has(i.id))
                     }
                     onCheckedChange={toggleSelectAll}
-                    disabled={paginatedItems.filter(i => i.status === 'pending' || i.status === 'error').length === 0}
+                    disabled={currentRole === 'Free' || paginatedItems.filter(i => i.status === 'pending' || i.status === 'error').length === 0}
                   />
                 </TableHead>
                 <TableHead className="text-slate-300">Asset Details</TableHead>
@@ -428,23 +430,34 @@ export default function AudioLibrary() {
             </div>
 
             <div className="flex items-center gap-2">
-              <Button
-                onClick={handleBulkUpload}
-                disabled={isBulkUploading}
-                className="bg-cyan-600 hover:bg-cyan-500 text-white text-xs px-4 h-10 gap-2"
-              >
-                {isBulkUploading ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" />
-                    <span>Uploading {bulkProgress}/{selectedIds.size}...</span>
-                  </>
-                ) : (
-                  <>
-                    <CloudUpload size={16} />
-                    <span>Upload to Roblox</span>
-                  </>
-                )}
-              </Button>
+              {currentRole === 'Free' ? (
+                <Button
+                  disabled
+                  className="bg-slate-800 text-slate-500 text-xs px-4 h-10 gap-2 cursor-not-allowed"
+                  title="Bulk Upload is a Pro feature"
+                >
+                  <CloudUpload size={16} />
+                  <span>Upload (Pro Only)</span>
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleBulkUpload}
+                  disabled={isBulkUploading}
+                  className="bg-cyan-600 hover:bg-cyan-500 text-white text-xs px-4 h-10 gap-2"
+                >
+                  {isBulkUploading ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      <span>Uploading {bulkProgress}/{selectedIds.size}...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CloudUpload size={16} />
+                      <span>Upload to Roblox</span>
+                    </>
+                  )}
+                </Button>
+              )}
 
               <AlertDialog>
                 <AlertDialogTrigger asChild>

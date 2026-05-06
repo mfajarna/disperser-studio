@@ -26,14 +26,14 @@ export function initBot(supabase: any) {
           
           if (!hasPanel) {
             const embed = new EmbedBuilder()
-              .setTitle('💎 Disperser Studio Subscriptions')
-              .setDescription('Upgrade your account to unlock higher limits and premium features.\n\n**Tiers:**\n- Solo Dev: Rp 200.000 / month\n- Studio: Rp 300.000 / month\n- Enterprise: Rp 400.000 / month')
+              .setTitle('💎 Disperser Studio Pro')
+              .setDescription('Upgrade to Pro Plan to unlock Bulk Imports, Unlimited Uploads, and maximum limits.\n\n**Harga:** Rp 249.000 / bulan')
               .setColor('#00FFFF');
 
             const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
               new ButtonBuilder()
-                .setCustomId('buy_sub')
-                .setLabel('Beli Subscription')
+                .setCustomId('buy_pro')
+                .setLabel('Beli Pro Plan (Rp 249k)')
                 .setStyle(ButtonStyle.Success)
                 .setEmoji('🛒')
             );
@@ -49,7 +49,7 @@ export function initBot(supabase: any) {
   });
 
   botClient.on('interactionCreate', async (interaction) => {
-    if (interaction.isButton() && interaction.customId === 'buy_sub') {
+    if (interaction.isButton() && interaction.customId === 'buy_pro') {
       
       let currentInfo = '';
       try {
@@ -62,34 +62,11 @@ export function initBot(supabase: any) {
         console.error('Failed to fetch user role:', err);
       }
 
-      const selectMenu = new StringSelectMenuBuilder()
-        .setCustomId('select_tier')
-        .setPlaceholder('Pilih Tier Subscription')
-        .addOptions([
-          { label: 'Solo Dev', description: 'Rp 200.000 / bulan', value: 'Solo Dev', emoji: '🧑‍💻' },
-          { label: 'Studio', description: 'Rp 300.000 / bulan', value: 'Studio', emoji: '🏢' },
-          { label: 'Enterprise', description: 'Rp 400.000 / bulan', value: 'Enterprise', emoji: '🚀' },
-        ]);
+      await interaction.deferReply({ ephemeral: true });
 
-      const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
-
-      await interaction.reply({
-        content: `Silakan pilih Tier yang ingin Anda beli:${currentInfo}`,
-        components: [row],
-        ephemeral: true // Private message
-      });
-    }
-
-    if (interaction.isStringSelectMenu() && interaction.customId === 'select_tier') {
-      const roleName = interaction.values[0];
+      const roleName = 'Pro Plan';
       const userId = interaction.user.id;
-      
-      await interaction.deferUpdate();
-
-      let price = 0;
-      if (roleName === 'Solo Dev') price = parseInt(process.env.PRICE_SOLODEV || '200000');
-      else if (roleName === 'Studio') price = parseInt(process.env.PRICE_STUDIO || '300000');
-      else if (roleName === 'Enterprise') price = parseInt(process.env.PRICE_ENTERPRISE || '400000');
+      const price = parseInt(process.env.PRICE_PRO || '249000');
 
       const merchantCode = process.env.DUITKU_MERCHANT_CODE || '';
       const apiKey = process.env.DUITKU_API_KEY || '';
@@ -124,7 +101,7 @@ export function initBot(supabase: any) {
           body: JSON.stringify({
             merchantCode,
             paymentAmount: price,
-            paymentMethod: "VC", // Credit card default, but user can choose in Duitku UI if left empty or mapped properly
+            paymentMethod: "VC", 
             merchantOrderId,
             productDetails: `Langganan ${roleName}`,
             email: "customer@disperser.com",
@@ -146,7 +123,7 @@ export function initBot(supabase: any) {
           );
 
           await interaction.editReply({
-            content: `Anda memilih **${roleName}**.\nTotal Harga: **Rp ${price.toLocaleString('id-ID')}**\n\nSilakan klik tombol di bawah untuk menyelesaikan pembayaran.`,
+            content: `Anda akan membeli **${roleName}**.\nTotal Harga: **Rp ${price.toLocaleString('id-ID')}**${currentInfo}\n\nSilakan klik tombol di bawah untuk menyelesaikan pembayaran.`,
             components: [payRow]
           });
         } else {

@@ -234,10 +234,12 @@ export const api = {
 
   async robloxUpload(name: string, desc: string, audioBlob: Blob) {
     const key = localStorage.getItem('disperser_key');
-    const userId = localStorage.getItem('disperser_user_id');
+    const userId = localStorage.getItem('disperser_user_id'); // Roblox Creator ID
+    const sbUserId = getCurrentUserId();
     const form = new FormData();
     form.append('apiKey', key || '');
     form.append('userId', userId || '');
+    form.append('supabaseUserId', sbUserId || '');
     form.append('name', name);
     form.append('description', desc);
     form.append('file', audioBlob, 'audio.wav');
@@ -251,7 +253,8 @@ export const api = {
 
   async robloxUploadFromUrl(name: string, desc: string, fileUrl: string) {
     const apiKey = localStorage.getItem('disperser_key');
-    const userId = localStorage.getItem('disperser_user_id');
+    const userId = localStorage.getItem('disperser_user_id'); // Roblox Creator ID
+    const sbUserId = getCurrentUserId();
     
     const res = await fetch(`${BASE_URL}/api/roblox/upload-from-url`, {
       method: 'POST',
@@ -259,6 +262,7 @@ export const api = {
       body: JSON.stringify({
         apiKey,
         userId,
+        supabaseUserId: sbUserId,
         name,
         description: desc,
         fileUrl

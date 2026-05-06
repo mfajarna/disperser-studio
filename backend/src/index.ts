@@ -68,9 +68,7 @@ app.post('/api/payment/duitku-callback', async (req, res) => {
           .eq('id', tx.user_id);
           
         let roleId = '';
-        if (tx.role_target === 'Solo Dev') roleId = process.env.ROLE_SOLODEV_ID || '';
-        else if (tx.role_target === 'Studio') roleId = process.env.ROLE_STUDIO_ID || '';
-        else if (tx.role_target === 'Enterprise') roleId = process.env.ROLE_ENTERPRISE_ID || '';
+        if (tx.role_target === 'Pro Plan') roleId = process.env.ROLE_PRO_ID || '';
         
         const guildId = process.env.DISCORD_GUILD_ID;
         if (guildId && roleId) {
@@ -105,7 +103,7 @@ app.post('/api/payment/duitku-callback', async (req, res) => {
 
 app.post('/api/roblox/upload', upload.single('file'), async (req, res) => {
   const file = req.file;
-  const { apiKey, userId, name, description } = req.body;
+  const { apiKey, userId, supabaseUserId, name, description } = req.body;
 
   if (!apiKey || !file) {
     console.error('❌ Upload failed: Missing API Key or File');
@@ -113,6 +111,28 @@ app.post('/api/roblox/upload', upload.single('file'), async (req, res) => {
   }
 
   try {
+    // RATE LIMIT CHECK
+    if (supabaseUserId) {
+      const { data: user } = await supabase.from('users').select('current_role, uploads_today, last_upload_date').eq('id', supabaseUserId).single();
+      if (user && user.current_role === 'Free') {
+        const today = new Date().toISOString().split('T')[0];
+        const lastUpload = user.last_upload_date ? new Date(user.last_upload_date).toISOString().split('T')[0] : '';
+        
+        let currentUploads = user.uploads_today || 0;
+        if (lastUpload !== today) currentUploads = 0; // Reset daily
+        
+        if (currentUploads >= 3) {
+          return res.status(403).json({ success: false, error: 'Limit harian habis (3/3). Upgrade ke Pro Plan untuk upload sepuasnya!' });
+        }
+        
+        // Update DB
+        await supabase.from('users').update({
+          uploads_today: currentUploads + 1,
+          last_upload_date: new Date().toISOString()
+        }).eq('id', supabaseUserId);
+      }
+    }
+
     const formData = new FormData();
     const fileBlob = new Blob([new Uint8Array(file.buffer)], { type: file.mimetype });
 
@@ -154,13 +174,35 @@ app.post('/api/roblox/upload', upload.single('file'), async (req, res) => {
 });
 
 app.post('/api/roblox/upload-from-url', async (req, res) => {
-  const { apiKey, userId, name, description, fileUrl } = req.body;
+  const { apiKey, userId, supabaseUserId, name, description, fileUrl } = req.body;
 
   if (!apiKey || !fileUrl) {
     return res.status(400).json({ success: false, error: 'Missing API Key or File URL' });
   }
 
   try {
+    // RATE LIMIT CHECK
+    if (supabaseUserId) {
+      const { data: user } = await supabase.from('users').select('current_role, uploads_today, last_upload_date').eq('id', supabaseUserId).single();
+      if (user && user.current_role === 'Free') {
+        const today = new Date().toISOString().split('T')[0];
+        const lastUpload = user.last_upload_date ? new Date(user.last_upload_date).toISOString().split('T')[0] : '';
+        
+        let currentUploads = user.uploads_today || 0;
+        if (lastUpload !== today) currentUploads = 0; // Reset daily
+        
+        if (currentUploads >= 3) {
+          return res.status(403).json({ success: false, error: 'Limit harian habis (3/3). Upgrade ke Pro Plan untuk upload sepuasnya!' });
+        }
+        
+        // Update DB
+        await supabase.from('users').update({
+          uploads_today: currentUploads + 1,
+          last_upload_date: new Date().toISOString()
+        }).eq('id', supabaseUserId);
+      }
+    }
+
     console.log(`📡 Fetching asset from Supabase URL...`);
     const downloadRes = await fetch(fileUrl);
     if (!downloadRes.ok) throw new Error('Failed to download asset from source URL');

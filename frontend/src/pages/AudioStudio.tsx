@@ -26,13 +26,13 @@ import {
   FileAudio,
   Clock,
   AlertCircle,
-  CheckCircle2
+  CheckCircle2,
+  Crown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import { Card, CardContent } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import {
@@ -50,6 +50,10 @@ const assetSchema = z.object({
 });
 
 export default function AudioStudio() {
+  const userStr = localStorage.getItem('disperser_user');
+  const user = userStr ? JSON.parse(userStr) : {};
+  const currentRole = user.current_role || 'Free';
+
   const [file, setFile] = useState<File | null>(null);
   const [ytUrl, setYtUrl] = useState('');
   const [loading, setLoading] = useState(false);
@@ -87,8 +91,7 @@ export default function AudioStudio() {
     clearBulkQueue,
     loading: bulkLoading,
     loadingMsg: bulkLoadingMsg,
-    saveError: bulkSaveError,
-    setSaveError: setBulkSaveError
+    saveError: bulkSaveError
   } = useBulkUpload();
 
   const handleSaveAll = async () => {
@@ -198,7 +201,7 @@ export default function AudioStudio() {
       plugins: [regions.current = RegionsPlugin.create()]
     });
 
-    const blob = new Blob([item.buffer], { type: 'audio/mpeg' });
+    const blob = new Blob([item.buffer as any], { type: 'audio/mpeg' });
     ws.current.loadBlob(blob);
 
     ws.current.on('ready', () => {
@@ -210,8 +213,8 @@ export default function AudioStudio() {
         start: 0,
         end: d,
         color: 'rgba(6, 182, 212, 0.12)',
-        drag: true,
-        resize: true
+        drag: currentRole !== 'Free',
+        resize: currentRole !== 'Free'
       });
       // Auto-populate name if not already set
       if (!assetName || assetName === 'YouTube Audio') {
@@ -300,7 +303,7 @@ export default function AudioStudio() {
     // Validate asset name
     const result = assetSchema.safeParse({ name: assetName });
     if (!result.success) {
-      setNameError(result.error.errors[0].message);
+      setNameError((result.error as any).errors[0].message);
       return;
     }
     setNameError('');
@@ -336,7 +339,7 @@ export default function AudioStudio() {
         trimStart: trim.start,
         trimEnd: trim.end
       });
-      const wav = audioBufferToWav(processed);
+      const wav = audioBufferToWav((processed as any).get ? (processed as any).get() : processed);
       const wavBlob = new Blob([wav], { type: 'audio/wav' });
       await api.addToQueue(assetName, 'Uploaded via Studio', wavBlob);
 
@@ -487,11 +490,17 @@ export default function AudioStudio() {
                 <Music size={14} /> Single Import
               </TabsTrigger>
               <TabsTrigger value="bulk" className="data-[state=active]:bg-cyan-500/10 data-[state=active]:text-cyan-400 gap-2 px-6">
-                <Zap size={14} /> Bulk Import
+                <Zap size={14} /> Bulk Import {currentRole === 'Free' && <Crown size={12} className="text-yellow-500 ml-1" />}
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="single">
+              {currentRole === 'Free' && (
+                <div className="mb-6 flex items-center gap-2 text-xs text-yellow-500 bg-yellow-500/10 p-3 rounded-lg border border-yellow-500/20">
+                  <AlertCircle size={14} />
+                  <span>Anda menggunakan <b>Free Plan</b>. Anda memiliki batasan maksimal <b>3 kali Upload/Import per hari</b>. Upgrade ke <a href="#" onClick={(e) => { e.preventDefault(); document.getElementById('buy-sub-discord')?.click(); }} className="underline font-bold text-yellow-400">Pro Plan</a> untuk menghilangkan batasan ini.</span>
+                </div>
+              )}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* YouTube Import */}
                 <Card className="bg-slate-900/40 border-slate-800 p-8 space-y-4 hover:border-red-500/20 transition-colors group">
@@ -564,6 +573,23 @@ export default function AudioStudio() {
             </TabsContent>
 
             <TabsContent value="bulk">
+              {currentRole === 'Free' ? (
+                <Card className="bg-slate-900/40 border-slate-800 p-12 flex flex-col items-center justify-center text-center space-y-4">
+                  <div className="w-16 h-16 rounded-full bg-yellow-500/10 flex items-center justify-center mb-2">
+                    <Crown size={32} className="text-yellow-500" />
+                  </div>
+                  <h3 className="text-xl font-bold text-white">Pro Plan Exclusive</h3>
+                  <p className="text-slate-400 max-w-md mx-auto">
+                    Bulk Import memungkinkan Anda mengunggah puluhan file atau URL YouTube sekaligus secara otomatis. Fitur ini eksklusif untuk pengguna <b>Pro Plan</b>.
+                  </p>
+                  <Button 
+                    onClick={() => document.getElementById('buy-sub-discord')?.click()} 
+                    className="mt-4 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white gap-2"
+                  >
+                    <Crown size={16} /> Upgrade via Discord (Rp 249k)
+                  </Button>
+                </Card>
+              ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* YouTube Bulk */}
                 <Card className="bg-slate-900/40 border-slate-800 p-6 flex flex-col gap-4">
@@ -670,6 +696,7 @@ export default function AudioStudio() {
                   )}
                 </div>
               </div>
+              )}
             </TabsContent>
           </Tabs>
 
@@ -796,9 +823,15 @@ export default function AudioStudio() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge variant="secondary" className="bg-cyan-500/10 text-cyan-400 border-cyan-500/20 gap-1 text-[10px]">
-                        <Scissors size={10} /> Drag edges to trim
-                      </Badge>
+                      {currentRole === 'Free' ? (
+                        <Badge variant="secondary" className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20 gap-1 text-[10px]">
+                          <Crown size={10} /> Trim Locked (Pro)
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="bg-cyan-500/10 text-cyan-400 border-cyan-500/20 gap-1 text-[10px]">
+                          <Scissors size={10} /> Drag edges to trim
+                        </Badge>
+                      )}
                     </div>
                   </div>
 
@@ -810,47 +843,50 @@ export default function AudioStudio() {
                   {/* Audio Controls Grid */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     {/* Volume */}
-                    <div className="space-y-3 bg-slate-900/30 rounded-xl p-4 border border-slate-800/50">
+                    <div className={`space-y-3 rounded-xl p-4 border ${currentRole === 'Free' ? 'bg-slate-900/10 border-slate-800/30 opacity-60 pointer-events-none relative' : 'bg-slate-900/30 border-slate-800/50'}`}>
+                      {currentRole === 'Free' && <Crown size={16} className="absolute top-4 right-4 text-yellow-500/50" />}
                       <div className="flex items-center justify-between">
                         <label className="text-xs font-bold text-slate-400 uppercase flex items-center gap-2">
                           <Volume2 size={14} className="text-cyan-400" /> Volume
                         </label>
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-md">{Math.round(volume * 100)}%</span>
-                          <button onClick={() => resetControl('volume')} className="text-[10px] text-slate-600 hover:text-slate-400 transition-colors">Reset</button>
+                          <button onClick={() => resetControl('volume')} className="text-[10px] text-slate-600 hover:text-slate-400 transition-colors" disabled={currentRole === 'Free'}>Reset</button>
                         </div>
                       </div>
-                      <Slider value={[volume * 100]} max={200} step={1} onValueChange={(v) => setVolume(v[0] / 100)} />
+                      <Slider disabled={currentRole === 'Free'} value={[volume * 100]} max={200} step={1} onValueChange={(v) => setVolume(v[0] / 100)} />
                       <p className="text-[10px] text-slate-600">Adjust output loudness (0% – 200%)</p>
                     </div>
 
                     {/* Speed */}
-                    <div className="space-y-3 bg-slate-900/30 rounded-xl p-4 border border-slate-800/50">
+                    <div className={`space-y-3 rounded-xl p-4 border ${currentRole === 'Free' ? 'bg-slate-900/10 border-slate-800/30 opacity-60 pointer-events-none relative' : 'bg-slate-900/30 border-slate-800/50'}`}>
+                      {currentRole === 'Free' && <Crown size={16} className="absolute top-4 right-4 text-yellow-500/50" />}
                       <div className="flex items-center justify-between">
                         <label className="text-xs font-bold text-slate-400 uppercase flex items-center gap-2">
                           <Zap size={14} className="text-cyan-400" /> Speed
                         </label>
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-md">{speed.toFixed(1)}x</span>
-                          <button onClick={() => resetControl('speed')} className="text-[10px] text-slate-600 hover:text-slate-400 transition-colors">Reset</button>
+                          <button onClick={() => resetControl('speed')} className="text-[10px] text-slate-600 hover:text-slate-400 transition-colors" disabled={currentRole === 'Free'}>Reset</button>
                         </div>
                       </div>
-                      <Slider value={[speed * 10]} min={5} max={30} step={1} onValueChange={(v) => setSpeed(v[0] / 10)} />
+                      <Slider disabled={currentRole === 'Free'} value={[speed * 10]} min={5} max={30} step={1} onValueChange={(v) => setSpeed(v[0] / 10)} />
                       <p className="text-[10px] text-slate-600">Playback rate (0.5x – 3.0x)</p>
                     </div>
 
                     {/* Pitch */}
-                    <div className="space-y-3 bg-slate-900/30 rounded-xl p-4 border border-slate-800/50">
+                    <div className={`space-y-3 rounded-xl p-4 border ${currentRole === 'Free' ? 'bg-slate-900/10 border-slate-800/30 opacity-60 pointer-events-none relative' : 'bg-slate-900/30 border-slate-800/50'}`}>
+                      {currentRole === 'Free' && <Crown size={16} className="absolute top-4 right-4 text-yellow-500/50" />}
                       <div className="flex items-center justify-between">
                         <label className="text-xs font-bold text-slate-400 uppercase flex items-center gap-2">
                           <Activity size={14} className="text-cyan-400" /> Pitch Shift
                         </label>
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-md">{pitch > 0 ? '+' : ''}{pitch}%</span>
-                          <button onClick={() => resetControl('pitch')} className="text-[10px] text-slate-600 hover:text-slate-400 transition-colors">Reset</button>
+                          <button onClick={() => resetControl('pitch')} className="text-[10px] text-slate-600 hover:text-slate-400 transition-colors" disabled={currentRole === 'Free'}>Reset</button>
                         </div>
                       </div>
-                      <Slider value={[pitch + 100]} min={0} max={200} step={1} onValueChange={(v) => setPitch(v[0] - 100)} />
+                      <Slider disabled={currentRole === 'Free'} value={[pitch + 100]} min={0} max={200} step={1} onValueChange={(v) => setPitch(v[0] - 100)} />
                       <p className="text-[10px] text-slate-600">Pitch adjustment (-100% to +100%)</p>
                     </div>
                   </div>
@@ -886,10 +922,11 @@ export default function AudioStudio() {
                       <Button
                         variant="outline"
                         size="sm"
+                        disabled={currentRole === 'Free'}
                         onClick={() => { setVolume(0.05); setSpeed(2.3); }}
                         className="bg-cyan-500/10 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 gap-2 h-9"
                       >
-                        <Sparkles size={14} /> Auto Optimize
+                        {currentRole === 'Free' ? <Crown size={14} className="text-yellow-500" /> : <Sparkles size={14} />} Auto Optimize
                       </Button>
                       <div className="flex gap-2">
                         <Button
