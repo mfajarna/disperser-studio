@@ -34,7 +34,20 @@ body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg-app); c
 .layout { display: flex; height: 100vh; width: 100vw; }
 
 /* Sidebar */
-.sidebar { width: var(--sidebar-w); background: var(--bg-sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 32px 20px; }
+.sidebar { 
+  width: var(--sidebar-w); 
+  background: var(--bg-sidebar); 
+  border-right: 1px solid var(--border); 
+  display: flex; 
+  flex-direction: column; 
+  padding: 32px 20px; 
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 50;
+}
+
 .logo { display: flex; align-items: center; gap: 12px; font-weight: 800; font-size: 20px; margin-bottom: 48px; letter-spacing: -0.5px; }
 .logo-icon { background: var(--accent); width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
 
@@ -50,7 +63,68 @@ body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg-app); c
 .btn-outline:hover { background: var(--bg-hover); }
 
 /* Main Content */
-.content { flex: 1; padding: 48px; overflow-y: auto; }
+.content { 
+  flex: 1; 
+  padding: 48px; 
+  overflow-y: auto; 
+  min-width: 0; /* Fix flex overflow */
+}
+
+@media (max-width: 1024px) {
+  .sidebar {
+    position: fixed;
+    transform: translateX(-100%);
+  }
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  .layout {
+    flex-direction: column;
+  }
+  .content {
+    padding: 32px 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .content {
+    padding: 24px 16px;
+  }
+  .page-title {
+    font-size: 24px;
+  }
+}
+
+.mobile-nav {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: var(--bg-sidebar);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+@media (max-width: 1024px) {
+  .mobile-nav {
+    display: flex;
+  }
+}
+
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 45;
+}
+
+.sidebar-overlay.open {
+  display: block;
+}
 .page-header { margin-bottom: 40px; }
 .page-title { font-size: 32px; font-weight: 700; margin-bottom: 8px; }
 .page-desc { color: var(--text-muted); }

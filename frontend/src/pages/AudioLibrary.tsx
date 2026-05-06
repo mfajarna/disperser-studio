@@ -272,7 +272,7 @@ export default function AudioLibrary() {
         </div>
 
         {/* Table */}
-        <div className="rounded-xl border border-slate-800 bg-slate-950 overflow-hidden">
+        <div className="rounded-xl border border-slate-800 bg-slate-950 overflow-x-auto">
           <Table>
             <TableHeader className="bg-slate-900/60">
               <TableRow className="border-slate-800">

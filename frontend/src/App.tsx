@@ -9,30 +9,32 @@ import AudioLibrary from './pages/AudioLibrary';
 import { PollProvider } from './context/PollContext';
 import { BulkUploadProvider, useBulkUpload } from './context/BulkUploadContext';
 import DiscordCallback from './pages/DiscordCallback';
-import {
-  LayoutDashboard,
-  Music,
-  Image as ImageIcon,
-  Settings as SettingsIcon,
-  LogOut,
-  ArrowLeft,
-  ChevronRight,
-  Sparkles,
-  ListMusic,
-  Loader2,
-  MessageSquare
+import { 
+  LayoutDashboard, 
+  Music, 
+  Image as ImageIcon, 
+  Settings as SettingsIcon, 
+  LogOut, 
+  ArrowLeft, 
+  ChevronRight, 
+  Sparkles, 
+  ListMusic, 
+  Loader2, 
+  MessageSquare,
+  Menu,
+  X as CloseIcon
 } from 'lucide-react';
 
 // --- Components ---
 
-const Sidebar = () => {
+const Sidebar = ({ open, setOpen }: { open: boolean; setOpen: (o: boolean) => void }) => {
   const loc = useLocation();
   const { bulkQueue, isBulkProcessing } = useBulkUpload();
   const logout = () => {
     localStorage.removeItem('disperser_key');
     localStorage.removeItem('disperser_user_id');
     localStorage.removeItem('disperser_user');
-    window.location.href = '/'; // Force reload to clear all states
+    window.location.href = '/';
   };
 
   const menuItems = [
@@ -46,14 +48,22 @@ const Sidebar = () => {
   const user = JSON.parse(localStorage.getItem('disperser_user') || '{}');
 
   return (
-    <aside className="sidebar">
-      <div className="logo flex items-center gap-3 px-2">
-        <div className="bg-gradient-to-br from-cyan-500 to-blue-600 w-9 h-9 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-500/20">
-          <Music size={20} className="text-white" />
+    <aside className={`sidebar ${open ? 'open' : ''}`}>
+      <div className="logo flex items-center justify-between gap-3 px-2">
+        <div className="flex items-center gap-3">
+          <div className="bg-gradient-to-br from-cyan-500 to-blue-600 w-9 h-9 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-500/20">
+            <Music size={20} className="text-white" />
+          </div>
+          <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+            Disperser
+          </span>
         </div>
-        <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
-          Disperser
-        </span>
+        <button 
+          className="lg:hidden p-2 text-slate-400 hover:text-white"
+          onClick={() => setOpen(false)}
+        >
+          <CloseIcon size={20} />
+        </button>
       </div>
 
       {/* User Profile Section in Sidebar */}
@@ -83,6 +93,7 @@ const Sidebar = () => {
             <Link
               key={item.path}
               to={item.path}
+              onClick={() => setOpen(false)}
               className={`nav-link relative flex items-center justify-between group ${isActive ? 'active' : ''}`}
             >
               <div className="flex items-center gap-3">
@@ -110,7 +121,7 @@ const Sidebar = () => {
                 {bulkQueue.filter(i => i.status === 'success').length} / {bulkQueue.length} Ready
               </span>
             </div>
-            <Link to="/dashboard/studio" className="text-[10px] text-cyan-500 hover:text-cyan-400 mt-2 block font-bold transition-colors">
+            <Link to="/dashboard/studio" onClick={() => setOpen(false)} className="text-[10px] text-cyan-500 hover:text-cyan-400 mt-2 block font-bold transition-colors">
               VIEW QUEUE →
             </Link>
           </div>
@@ -182,13 +193,36 @@ const Home = () => {
 };
 
 const DashboardLayout = ({ userExists }: { userExists: boolean }) => {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   if (!userExists) return <Navigate to="/login" />;
 
   return (
     <PollProvider>
       <BulkUploadProvider>
         <div className="layout">
-          <Sidebar />
+          <div className="mobile-nav">
+            <div className="flex items-center gap-3">
+              <div className="bg-gradient-to-br from-cyan-500 to-blue-600 w-8 h-8 rounded-lg flex items-center justify-center shadow-lg shadow-cyan-500/20">
+                <Music size={16} className="text-white" />
+              </div>
+              <span className="text-lg font-bold tracking-tight bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+                Disperser
+              </span>
+            </div>
+            <button 
+              className="p-2 text-slate-400 hover:text-white transition-colors"
+              onClick={() => setSidebarOpen(true)}
+            >
+              <Menu size={24} />
+            </button>
+          </div>
+
+          <div 
+            className={`sidebar-overlay ${sidebarOpen ? 'open' : ''}`}
+            onClick={() => setSidebarOpen(false)}
+          />
+
+          <Sidebar open={sidebarOpen} setOpen={setSidebarOpen} />
           <main className="content">
             <Routes>
               <Route path="/" element={<Overview />} />

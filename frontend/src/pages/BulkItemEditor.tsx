@@ -144,25 +144,25 @@ export const BulkItemEditor: React.FC<BulkItemEditorProps> = ({ item, onUpdate, 
   };
 
   return (
-    <Card className={`bg-slate-900/40 border-slate-800 transition-all ${isExpanded ? 'ring-1 ring-cyan-500/30' : ''}`}>
+    <Card className={`bg-slate-900/40 border-slate-800 transition-all overflow-hidden ${isExpanded ? 'ring-1 ring-cyan-500/30' : ''}`}>
       <div 
-        className="p-4 flex items-center justify-between cursor-pointer hover:bg-slate-800/30 transition-colors"
+        className="p-3 sm:p-4 flex flex-row items-center justify-between cursor-pointer hover:bg-slate-800/30 transition-colors gap-3"
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        <div className="flex items-center gap-4 truncate">
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${item.type === 'youtube' ? 'bg-red-500/10' : 'bg-cyan-500/10'}`}>
-            {item.type === 'youtube' ? <Youtube size={20} className="text-red-400" /> : <FileAudio size={20} className="text-cyan-400" />}
+        <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+          <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shrink-0 ${item.type === 'youtube' ? 'bg-red-500/10' : 'bg-cyan-500/10'}`}>
+            {item.type === 'youtube' ? <Youtube size={18} className="text-red-400" /> : <FileAudio size={18} className="text-cyan-400" />}
           </div>
-          <div className="truncate">
-            <h4 className="font-bold text-white text-sm truncate">{item.assetName || item.name}</h4>
-            <div className="flex items-center gap-3 text-[10px] text-slate-500 mt-0.5">
+          <div className="min-w-0">
+            <h4 className="font-bold text-white text-xs sm:text-sm truncate">{item.assetName || item.name}</h4>
+            <div className="flex items-center flex-wrap gap-x-2 sm:gap-3 text-[9px] sm:text-[10px] text-slate-500 mt-0.5">
               <span className="flex items-center gap-1"><Volume2 size={10} /> {Math.round(item.volume * 100)}%</span>
               <span className="flex items-center gap-1"><Zap size={10} /> {item.speed}x</span>
               <span className="flex items-center gap-1"><Scissors size={10} /> {formatTime((item.trim?.end || 0) - (item.trim?.start || 0))}</span>
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1 sm:gap-3 shrink-0">
           <Button 
             variant="ghost" 
             size="icon" 
@@ -171,12 +171,12 @@ export const BulkItemEditor: React.FC<BulkItemEditorProps> = ({ item, onUpdate, 
           >
             <Trash2 size={16} />
           </Button>
-          {isExpanded ? <ChevronUp size={20} className="text-slate-600" /> : <ChevronDown size={20} className="text-slate-600" />}
+          {isExpanded ? <ChevronUp size={18} className="text-slate-600" /> : <ChevronDown size={18} className="text-slate-600" />}
         </div>
       </div>
 
       {isExpanded && (
-        <CardContent className="p-6 pt-0 space-y-6 border-t border-slate-800/50">
+        <CardContent className="p-4 sm:p-6 pt-0 space-y-6 border-t border-slate-800/50">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-6">
             {/* Left: Waveform & Name */}
             <div className="space-y-4">
@@ -186,11 +186,11 @@ export const BulkItemEditor: React.FC<BulkItemEditorProps> = ({ item, onUpdate, 
                   value={item.assetName || ''} 
                   onChange={(e) => onUpdate(item.id, { assetName: e.target.value })}
                   placeholder="Enter asset name..."
-                  className="bg-slate-950 border-slate-800 text-sm h-9"
+                  className="bg-slate-950 border-slate-800 text-sm h-10"
                 />
               </div>
 
-              <div className="bg-slate-950/50 rounded-xl p-4 border border-slate-800/50 relative">
+              <div className="bg-slate-950/50 rounded-xl p-3 sm:p-4 border border-slate-800/50 relative">
                 <div className="flex items-center justify-between mb-2">
                   <Button
                     size="icon"
@@ -209,36 +209,36 @@ export const BulkItemEditor: React.FC<BulkItemEditorProps> = ({ item, onUpdate, 
             </div>
 
             {/* Right: Controls */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-4">
-              <div className="space-y-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-5">
+              <div className="space-y-3">
                 <div className="flex justify-between text-[10px] font-bold text-slate-500 uppercase">
-                  <span>Volume</span>
+                  <span className="flex items-center gap-1.5"><Volume2 size={12} /> Volume</span>
                   <span className="text-cyan-400">{Math.round(item.volume * 100)}%</span>
                 </div>
                 <Slider value={[item.volume * 100]} max={200} step={1} onValueChange={(v) => onUpdate(item.id, { volume: v[0] / 100 })} />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <div className="flex justify-between text-[10px] font-bold text-slate-500 uppercase">
-                  <span>Speed</span>
+                  <span className="flex items-center gap-1.5"><Zap size={12} /> Speed</span>
                   <span className="text-cyan-400">{item.speed}x</span>
                 </div>
                 <Slider value={[item.speed * 10]} min={5} max={30} step={1} onValueChange={(v) => onUpdate(item.id, { speed: v[0] / 10 })} />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <div className="flex justify-between text-[10px] font-bold text-slate-500 uppercase">
-                  <span>Pitch</span>
+                  <span className="flex items-center gap-1.5"><Activity size={12} /> Pitch</span>
                   <span className="text-cyan-400">{item.pitch > 0 ? '+' : ''}{item.pitch}%</span>
                 </div>
                 <Slider value={[item.pitch + 100]} min={0} max={200} step={1} onValueChange={(v) => onUpdate(item.id, { pitch: v[0] - 100 })} />
               </div>
-              <div className="pt-2 border-t border-slate-800/50">
+              <div className="pt-2 lg:pt-4 border-t border-slate-800/50 sm:col-span-2 lg:col-span-1">
                 <Button 
                   variant="outline" 
                   size="sm" 
                   onClick={() => onUpdate(item.id, { volume: 0.05, speed: 2.3 })}
-                  className="w-full text-[10px] h-8 bg-cyan-500/5 border-cyan-500/20 text-cyan-400 hover:bg-cyan-500/10 gap-2"
+                  className="w-full text-[10px] h-9 bg-cyan-500/5 border-cyan-500/20 text-cyan-400 hover:bg-cyan-500/10 gap-2 font-bold"
                 >
-                  <Sparkles size={12} /> Optimize for Roblox
+                  <Sparkles size={12} /> OPTIMIZE FOR ROBLOX
                 </Button>
               </div>
             </div>

@@ -450,8 +450,8 @@ export default function AudioStudio() {
         /* ==================== IMPORT SCREEN ==================== */
         <div className="space-y-6">
           {/* Header Card */}
-          <Card className="bg-gradient-to-br from-cyan-500/5 to-blue-600/5 border-slate-800 p-8">
-            <div className="flex items-start gap-6">
+          <Card className="bg-gradient-to-br from-cyan-500/5 to-blue-600/5 border-slate-800 p-6 md:p-8">
+            <div className="flex flex-col md:flex-row items-center md:items-start text-center md:text-left gap-6">
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20 shrink-0">
                 <Headphones size={28} className="text-white" />
               </div>
@@ -464,7 +464,7 @@ export default function AudioStudio() {
                   <span className="text-cyan-400 font-semibold">pitch</span>, and {" "}
                   <span className="text-cyan-400 font-semibold">volume</span> before uploading to Roblox.
                 </p>
-                <div className="flex gap-2 pt-2">
+                <div className="flex flex-wrap justify-center md:justify-start gap-2 pt-2">
                   <Badge variant="secondary" className="bg-slate-800 text-slate-400 text-xs gap-1">
                     <FileAudio size={12} /> MP3 Output
                   </Badge>
@@ -481,7 +481,7 @@ export default function AudioStudio() {
 
           {/* Import Options */}
           <Tabs defaultValue="single" className="space-y-6">
-            <TabsList className="bg-slate-900 border border-slate-800 p-1">
+            <TabsList className="bg-slate-900 border border-slate-800 p-1 w-full overflow-x-auto justify-start">
               <TabsTrigger value="single" className="data-[state=active]:bg-cyan-500/10 data-[state=active]:text-cyan-400 gap-2 px-6">
                 <Music size={14} /> Single Import
               </TabsTrigger>
@@ -509,14 +509,14 @@ export default function AudioStudio() {
                       <p className="text-xs text-slate-500">Paste a video URL to extract audio as MP3</p>
                     </div>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <Input
                       placeholder="https://youtube.com/watch?v=..."
                       value={ytUrl}
                       onChange={(e) => { setYtUrl(e.target.value); if (ytError) setYtError(''); }}
-                      className={`bg-slate-950 border-slate-800 focus-visible:ring-cyan-500/50 ${ytError ? 'border-red-500/50' : ''}`}
+                      className={`bg-slate-950 border-slate-800 focus-visible:ring-cyan-500/50 h-11 ${ytError ? 'border-red-500/50' : ''}`}
                     />
-                    <Button onClick={handleImport} disabled={loading || !ytUrl} className="bg-red-600 hover:bg-red-500 shrink-0 gap-2">
+                    <Button onClick={handleImport} disabled={loading || !ytUrl} className="bg-red-600 hover:bg-red-500 shrink-0 gap-2 h-11">
                       <Youtube size={16} /> Import
                     </Button>
                   </div>
@@ -796,31 +796,31 @@ export default function AudioStudio() {
             <Card className="bg-slate-900/40 border-slate-800 overflow-hidden">
               <CardContent className="p-0">
                 {/* Waveform Section */}
-                <div className="bg-slate-950/80 p-6 pb-4 border-b border-slate-800 relative">
-                  <div className="flex items-center justify-between mb-4">
+                <div className="bg-slate-950/80 p-4 md:p-6 pb-4 border-b border-slate-800 relative">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                     <div className="flex items-center gap-3">
                       <Button
                         size="icon"
                         variant="outline"
                         onClick={togglePlay}
-                        className="w-11 h-11 rounded-full border-slate-700 bg-slate-900/50 text-cyan-400 hover:bg-cyan-500/10 hover:border-cyan-500/50 transition-all"
+                        className="w-12 h-12 shrink-0 rounded-full border-slate-700 bg-slate-900/50 text-cyan-400 hover:bg-cyan-500/10 hover:border-cyan-500/50 transition-all"
                       >
-                        {isPlaying ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
+                        {isPlaying ? <Pause size={20} /> : <Play size={20} className="ml-0.5" />}
                       </Button>
-                      <div>
-                        <h3 className="font-bold text-white text-sm truncate max-w-[300px]">{assetName || file?.name}</h3>
-                        <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-0.5">
-                          <span className="font-mono text-cyan-400">{formatTime(currentTime)}</span>
-                          <span>/</span>
+                      <div className="min-width-0">
+                        <h3 className="font-bold text-white text-base truncate max-w-[200px] md:max-w-[400px]">{assetName || file?.name}</h3>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500 mt-1">
+                          <span className="font-mono text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded">{formatTime(currentTime)}</span>
+                          <span className="text-slate-700">/</span>
                           <span className="font-mono">{formatTime(duration)}</span>
-                          <span className="text-slate-700">•</span>
-                          <span>Trim: {formatTime(trim.start)} → {formatTime(trim.end)}</span>
+                          <span className="hidden sm:inline text-slate-700">•</span>
+                          <span className="w-full sm:w-auto">Trim: {formatTime(trim.start)} → {formatTime(trim.end)}</span>
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary" className="bg-cyan-500/10 text-cyan-400 border-cyan-500/20 gap-1 text-[10px]">
-                        <Scissors size={10} /> Drag edges to trim
+                    <div className="flex items-center gap-2 self-start sm:self-center">
+                      <Badge variant="secondary" className="bg-cyan-500/10 text-cyan-400 border-cyan-500/20 gap-1.5 text-[10px] py-1">
+                        <Scissors size={12} /> Drag edges to trim
                       </Badge>
                     </div>
                   </div>
@@ -828,10 +828,9 @@ export default function AudioStudio() {
                   <div ref={waveRef} className="rounded-lg overflow-hidden" />
                 </div>
 
-                {/* Controls Section */}
-                <div className="p-6 space-y-6">
+                <div className="p-4 md:p-6 space-y-8">
                   {/* Audio Controls Grid */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     {/* Volume */}
                     <div className="space-y-3 rounded-xl p-4 border bg-slate-900/30 border-slate-800/50">
                       <div className="flex items-center justify-between">
@@ -905,24 +904,24 @@ export default function AudioStudio() {
                       </div>
                     )}
 
-                    <div className="flex justify-between items-center gap-2">
+                    <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4">
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => { setVolume(0.05); setSpeed(2.3); }}
-                        className="bg-cyan-500/10 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 gap-2 h-9"
+                        className="bg-cyan-500/10 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 gap-2 h-10 w-full sm:w-auto"
                       >
                         <Sparkles size={14} /> Auto Optimize
                       </Button>
-                      <div className="flex gap-2">
+                      <div className="flex gap-3">
                         <Button
                           variant="ghost"
                           onClick={() => { setFile(null); setAssetName(''); setYtUrl(''); }}
-                          className="text-slate-500 hover:text-white gap-2"
+                          className="text-slate-500 hover:text-white gap-2 flex-1 sm:flex-none"
                         >
                           <X size={16} /> Discard
                         </Button>
-                        <Button onClick={handleSave} disabled={loading} className="bg-gradient-to-r from-cyan-500 to-blue-600 shadow-lg shadow-cyan-500/20 gap-2 px-6">
+                        <Button onClick={handleSave} disabled={loading} className="bg-gradient-to-r from-cyan-500 to-blue-600 shadow-lg shadow-cyan-500/20 gap-2 px-6 flex-1 sm:flex-none">
                           <Check size={16} /> Prepare Asset
                         </Button>
                       </div>
