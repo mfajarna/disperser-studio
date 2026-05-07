@@ -11,40 +11,76 @@ import http from 'http';
 
 import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
+import ws from 'ws';
+// @ts-ignore
+global.WebSocket = ws;
 import { initBot, getBotClient } from './bot';
 
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+console.log('📂 Checking for .env at:', path.resolve(__dirname, '../../.env'));
+if (process.env.YT_COOKIES) {
+  console.log('✅ YT_COOKIES variable is detected (Length:', process.env.YT_COOKIES.length, ')');
+} else {
+  console.log('⚠️ YT_COOKIES variable is NOT detected in process.env');
+}
 
 const app = express();
 const port = process.env.PORT || 5001;
 
-// YT-DLP Cross-platform Helper
-const cookiesPath = path.resolve(__dirname, '../cookies.txt');
-const hasCookies = fs.existsSync(cookiesPath);
+// Log available keys to debug environment variables
+const allKeys = Object.keys(process.env);
+const cookieRelatedKeys = allKeys.filter(k => k.toLowerCase().includes('cookies'));
+console.log('🔑 Environment Keys containing "cookies":', cookieRelatedKeys);
 
-const ytProxy = process.env.YT_PROXY;
-
-const ytConfig = {
-  executable: os.platform() === 'win32' ? 'yt-dlp' : (process.env.YT_DLP_PATH || 'yt-dlp'),
-  baseArgs: [
-    '--no-check-certificates',
-    ...(hasCookies ? ['--cookies', cookiesPath] : []),
-    ...(ytProxy ? ['--proxy', ytProxy] : []),
-    ...(os.platform() !== 'win32' ? ['--force-ipv4'] : [])
-  ]
-};
-
-if (hasCookies) {
-  console.log('🍪 Cookies detected and will be used for YT-DLP');
+if (process.env.YT_COOKIES) {
+  console.log('✅ YT_COOKIES found (Length:', process.env.YT_COOKIES.length, ')');
+} else if (cookieRelatedKeys.length > 0) {
+  console.log('⚠️ YT_COOKIES not found, but found these instead:', cookieRelatedKeys);
 } else {
-  console.log('🍪 Cookies NOT found at:', cookiesPath);
+  console.log('⚠️ No cookie-related variables found at all!');
 }
 
+const ytConfig = {
+  executable: os.platform() === 'win32' ? 'yt-dlp' : (process.env.YT_DLP_PATH || 'yt-dlp')
+};
+
+// Helper to get base args with dynamic cookies
+const getYtBaseArgs = () => {
+  let currentCookiesPath = null;
+  const localCookies = path.resolve(__dirname, '../cookies.txt');
+  
+  if (fs.existsSync(localCookies)) {
+    currentCookiesPath = localCookies;
+  } else if (process.env.YT_COOKIES) {
+    try {
+      const tempPath = path.join(os.tmpdir(), `cookies-dl-${Date.now()}.txt`);
+      fs.writeFileSync(tempPath, process.env.YT_COOKIES);
+      currentCookiesPath = tempPath;
+    } catch (e) {
+      console.error('Failed to write dynamic cookies:', e);
+    }
+  }
+
+  return {
+    args: [
+      '--no-check-certificates',
+      ...(currentCookiesPath ? ['--cookies', currentCookiesPath] : []),
+      ...(process.env.YT_PROXY ? ['--proxy', process.env.YT_PROXY] : []),
+      ...(os.platform() !== 'win32' ? ['--force-ipv4'] : [])
+    ],
+    tempFile: currentCookiesPath && currentCookiesPath.includes('cookies-dl-') ? currentCookiesPath : null
+  };
+};
+
 // Initialize Supabase
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL || "",
-  process.env.VITE_SUPABASE_ANON_KEY || "" // Note: In production, use SERVICE_ROLE_KEY for backend operations
-);
+const supabaseUrl = process.env.VITE_SUPABASE_URL || "";
+const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || "";
+
+if (!supabaseUrl || !supabaseKey) {
+  console.error('❌ CRITICAL: VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY is missing in environment variables!');
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Initialize Discord Bot
 initBot(supabase);
@@ -61,14 +97,14 @@ const upload = multer({ storage: multer.memoryStorage() });
 app.post('/api/payment/duitku-callback', async (req, res) => {
   try {
     const { merchantCode, amount, merchantOrderId, signature, reference, resultCode } = req.body;
-    
+
     const apiKey = process.env.DUITKU_API_KEY || '';
     const expectedSignature = crypto.createHash('md5').update(merchantCode + amount + merchantOrderId + apiKey).digest('hex');
-    
+
     if (signature !== expectedSignature) {
       return res.status(400).json({ error: 'Invalid signature' });
     }
-    
+
     if (resultCode === '00') {
       const { data: tx, error: txError } = await supabase
         .from('transactions')
@@ -76,44 +112,44 @@ app.post('/api/payment/duitku-callback', async (req, res) => {
         .eq('merchant_order_id', merchantOrderId)
         .select()
         .single();
-        
+
       if (!txError && tx) {
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + 30);
-        
+
         await supabase
           .from('users')
-          .update({ 
+          .update({
             current_role: tx.role_target,
             subscription_expires_at: expiresAt.toISOString()
           })
           .eq('id', tx.user_id);
-          
+
         let roleId = '';
         if (tx.role_target === 'Pro Plan') roleId = process.env.ROLE_PRO_ID || '';
-        
+
         const guildId = process.env.DISCORD_GUILD_ID;
         if (guildId && roleId) {
-           const botClient = getBotClient();
-           try {
-             const guild = await botClient.guilds.fetch(guildId);
-             const member = await guild.members.fetch(tx.user_id);
-             await member.roles.add(roleId);
-             
-             // Format the expiration date
-             const expireStr = expiresAt.toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' });
-             
-             // Send DM with full order details
-             const dmMessage = `🎉 **Pembayaran Berhasil!** 🎉\n\nTerima kasih, pembayaran langganan Anda telah kami terima.\n\n📝 **Detail Pesanan:**\n- **Order ID:** \`${tx.merchant_order_id}\`\n- **Paket Tier:** ${tx.role_target}\n- **Masa Aktif Hingga:** ${expireStr}\n\nRole Anda di server Discord dan Website sudah otomatis di-update!`;
-             
-             await member.send(dmMessage);
-           } catch (e) {
-             console.error('Failed to update Discord role via callback:', e);
-           }
+          const botClient = getBotClient();
+          try {
+            const guild = await botClient.guilds.fetch(guildId);
+            const member = await guild.members.fetch(tx.user_id);
+            await member.roles.add(roleId);
+
+            // Format the expiration date
+            const expireStr = expiresAt.toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' });
+
+            // Send DM with full order details
+            const dmMessage = `🎉 **Pembayaran Berhasil!** 🎉\n\nTerima kasih, pembayaran langganan Anda telah kami terima.\n\n📝 **Detail Pesanan:**\n- **Order ID:** \`${tx.merchant_order_id}\`\n- **Paket Tier:** ${tx.role_target}\n- **Masa Aktif Hingga:** ${expireStr}\n\nRole Anda di server Discord dan Website sudah otomatis di-update!`;
+
+            await member.send(dmMessage);
+          } catch (e) {
+            console.error('Failed to update Discord role via callback:', e);
+          }
         }
       }
     }
-    
+
     res.status(200).send('OK');
   } catch (error) {
     console.error('Duitku callback error:', error);
@@ -124,7 +160,7 @@ app.post('/api/payment/duitku-callback', async (req, res) => {
 // --- Roblox Key Validation ---
 app.post('/api/roblox/validate-key', async (req, res) => {
   const { apiKey } = req.body;
-  
+
   if (!apiKey) {
     return res.status(400).json({ success: false, error: 'API Key is required' });
   }
@@ -143,9 +179,9 @@ app.post('/api/roblox/validate-key', async (req, res) => {
 
     if (response.status === 403) {
       const data = await response.json().catch(() => ({}));
-      return res.status(403).json({ 
-        success: false, 
-        error: data.message || 'Access Forbidden: Ensure your IP is whitelisted and Assets API (Read) permission is added.' 
+      return res.status(403).json({
+        success: false,
+        error: data.message || 'Access Forbidden: Ensure your IP is whitelisted and Assets API (Read) permission is added.'
       });
     }
 
@@ -182,20 +218,20 @@ app.post('/api/roblox/upload', upload.single('file'), async (req, res) => {
       if (user && user.current_role === 'Free') {
         const today = new Date().toISOString().split('T')[0];
         const lastUpload = user.last_upload_date ? new Date(user.last_upload_date).toISOString().split('T')[0] : '';
-        
+
         let currentUploads = user.uploads_today || 0;
         if (lastUpload !== today) currentUploads = 0; // Reset daily
-        
+
         if (currentUploads >= 3) {
           return res.status(403).json({ success: false, error: 'Limit harian habis (3/3). Upgrade ke Pro Plan untuk upload sepuasnya!' });
         }
-        
+
         // PRE-INCREMENT
         await supabase.from('users').update({
           uploads_today: currentUploads + 1,
           last_upload_date: new Date().toISOString()
         }).eq('id', supabaseUserId);
-        
+
       }
     }
 
@@ -269,27 +305,27 @@ app.post('/api/roblox/upload-from-url', async (req, res) => {
       if (user && user.current_role === 'Free') {
         const today = new Date().toISOString().split('T')[0];
         const lastUpload = user.last_upload_date ? new Date(user.last_upload_date).toISOString().split('T')[0] : '';
-        
+
         let currentUploads = user.uploads_today || 0;
         if (lastUpload !== today) currentUploads = 0; // Reset daily
-        
+
         if (currentUploads >= 3) {
           return res.status(403).json({ success: false, error: 'Limit harian habis (3/3). Upgrade ke Pro Plan untuk upload sepuasnya!' });
         }
-        
+
         // PRE-INCREMENT
         await supabase.from('users').update({
           uploads_today: currentUploads + 1,
           last_upload_date: new Date().toISOString()
         }).eq('id', supabaseUserId);
-        
+
       }
     }
 
     console.log(`📡 Fetching asset from Supabase URL...`);
     const downloadRes = await fetch(fileUrl);
     if (!downloadRes.ok) throw new Error('Failed to download asset from source URL');
-    
+
     const arrayBuffer = await downloadRes.arrayBuffer();
     const fileBlob = new Blob([new Uint8Array(arrayBuffer)], { type: 'audio/wav' });
 
@@ -378,15 +414,17 @@ app.get('/api/youtube/info', async (req, res) => {
   if (!url) return res.status(400).json({ success: false, error: 'URL required' });
 
   try {
+    const { args, tempFile } = getYtBaseArgs();
     const result = await new Promise((resolve, reject) => {
       execFile(ytConfig.executable, [
-        ...ytConfig.baseArgs,
+        ...args,
         '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         '--print', '%(title)s',
         '--no-download',
         '--no-warnings',
         url
       ], { timeout: 15000 }, (err, stdout, stderr) => {
+        if (tempFile) try { fs.unlinkSync(tempFile); } catch (e) { }
         if (err) reject(new Error(stderr || err.message));
         else resolve(stdout.trim());
       });
@@ -407,10 +445,13 @@ app.post('/api/youtube/download', async (req, res) => {
   const outputFile = path.join(tmpDir, 'audio.mp3');
 
   try {
+    // Step 0: Handle Dynamic Cookies
+    const { args: finalBaseArgs, tempFile: currentCookiesPath } = getYtBaseArgs();
+
     // Step 1: Get title and duration
     const info: any = await new Promise((resolve) => {
       execFile(ytConfig.executable, [
-        ...ytConfig.baseArgs,
+        ...finalBaseArgs,
         '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         '--print', '%(title)s',
         '--print', '%(duration)s',
@@ -420,7 +461,7 @@ app.post('/api/youtube/download', async (req, res) => {
       ], { timeout: 15000 }, (err, stdout) => {
         const urlObj = new URL(url);
         const videoId = urlObj.searchParams.get('v') || url.split('/').pop() || 'audio';
-        
+
         if (err) {
           resolve({ title: `YouTube Audio (${videoId})`, duration: 0 });
         } else {
@@ -437,24 +478,15 @@ app.post('/api/youtube/download', async (req, res) => {
 
     // Step 2: Download and convert to MP3
     await new Promise((resolve, reject) => {
-      // Create a temporary copy of cookies to avoid permission errors
-      let tempCookiesPath = null;
-      if (hasCookies) {
-        try {
-          tempCookiesPath = path.join(os.tmpdir(), `cookies-${Date.now()}-${Math.random().toString(36).substring(7)}.txt`);
-          fs.copyFileSync(cookiesPath, tempCookiesPath);
-        } catch (e) {
-          console.error('Failed to copy cookies:', e);
-        }
-      }
-
       const finalArgs = [
-        ...ytConfig.baseArgs,
-        '--user-agent', 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
-        '--extractor-args', 'youtube:player_client=android,mweb',
+        ...finalBaseArgs,
+        '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        '--extractor-args', 'youtube:player_client=web_creator,android_vr',
+        '--add-header', 'Accept-Language: en-US,en;q=0.9',
+        '--sleep-requests', '1',
         '--rm-cache-dir',
         '--no-check-certificates',
-        '--format', 'bestaudio/best',
+        '--format', 'ba*/bestaudio/best',
         '--ffmpeg-location', os.platform() === 'win32' ? 'ffmpeg' : (process.env.FFMPEG_PATH || 'ffmpeg'),
         '-x',
         '--audio-format', 'mp3',
@@ -464,24 +496,18 @@ app.post('/api/youtube/download', async (req, res) => {
         url
       ];
 
-      // Update cookies path to temp one if created
-      if (tempCookiesPath) {
-        const idx = finalArgs.indexOf('--cookies');
-        if (idx !== -1) {
-          finalArgs[idx + 1] = tempCookiesPath;
-        }
-      }
-
       execFile(ytConfig.executable, finalArgs, { timeout: 180000 }, (err, stdout, stderr) => {
-        // Cleanup temp cookies
-        if (tempCookiesPath && fs.existsSync(tempCookiesPath)) {
-          try { fs.unlinkSync(tempCookiesPath); } catch (e) {}
+        // Cleanup dynamic cookies file if created
+        if (currentCookiesPath && currentCookiesPath.includes('cookies-dl-')) {
+          try { fs.unlinkSync(currentCookiesPath); } catch (e) { }
         }
-        
+
         if (err) {
-          console.error('yt-dlp error:', stderr);
+          console.error('❌ YT-DLP Exec Error:', err);
+          console.error('❌ YT-DLP Stderr:', stderr);
           reject(new Error(stderr || err.message));
         } else {
+          console.log('✅ YT-DLP Success Stdout:', stdout);
           resolve(undefined);
         }
       });
@@ -495,7 +521,9 @@ app.post('/api/youtube/download', async (req, res) => {
       if (mp3File) {
         actualFile = path.join(tmpDir, mp3File);
       } else {
-        throw new Error('MP3 conversion failed - no output file found');
+        const availableFiles = fs.readdirSync(tmpDir);
+        console.error('❌ MP3 file not found. Available files in tmp:', availableFiles);
+        throw new Error(`MP3 conversion failed - no output file found. Found: ${availableFiles.join(', ') || 'nothing'}`);
       }
     }
 
@@ -570,7 +598,7 @@ app.post('/api/discord/callback', async (req, res) => {
     // 2.5 Role Management & Auto-Join
     const guildId = process.env.DISCORD_GUILD_ID;
     const botToken = process.env.DISCORD_BOT_TOKEN;
-    
+
     const ROLE_FREE_ID = process.env.ROLE_FREE_ID;
     const ROLE_SOLODEV_ID = process.env.ROLE_SOLODEV_ID;
     const ROLE_STUDIO_ID = process.env.ROLE_STUDIO_ID;
@@ -619,7 +647,7 @@ app.post('/api/discord/callback', async (req, res) => {
 
     // Fetch existing user to check expiration
     const { data: existingUser } = await supabase.from('users').select('subscription_expires_at').eq('id', userId).single();
-    
+
     let isExpired = false;
     if (existingUser && existingUser.subscription_expires_at) {
       const expiresAt = new Date(existingUser.subscription_expires_at).getTime();
@@ -649,9 +677,9 @@ app.post('/api/discord/callback', async (req, res) => {
     }
 
     console.log(`✅ Login successful for ${userData.username} (Role: ${currentRole})`);
-    res.json({ 
-      success: true, 
-      user: { ...userData, current_role: currentRole, subscription_expires_at: dbUser?.subscription_expires_at }, 
+    res.json({
+      success: true,
+      user: { ...userData, current_role: currentRole, subscription_expires_at: dbUser?.subscription_expires_at },
       roleGiven: !!memberData,
       isExpired
     });
@@ -704,7 +732,7 @@ app.post('/api/subscription/extend', async (req, res) => {
 
   try {
     const { data: existingUser } = await supabase.from('users').select('subscription_expires_at').eq('id', userId).single();
-    
+
     let baseDate = new Date();
     if (existingUser && existingUser.subscription_expires_at) {
       const currentExpiry = new Date(existingUser.subscription_expires_at);
