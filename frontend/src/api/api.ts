@@ -288,13 +288,13 @@ export const api = {
 
   async checkOperation(opId: string) {
     const key = localStorage.getItem('disperser_key');
-    const res = await fetch(`${BASE_URL}/api/roblox/operation/${opId}?apiKey=${key}`);
+    const res = await fetch(`${BASE_URL}/api/roblox/operation/${opId}?apiKey=${encodeURIComponent(key || '')}`);
     return await res.json();
   },
 
   async getAssetMeta(assetId: string) {
     const key = localStorage.getItem('disperser_key');
-    const res = await fetch(`${BASE_URL}/api/roblox/asset/${assetId}?apiKey=${key}`);
+    const res = await fetch(`${BASE_URL}/api/roblox/asset/${assetId}?apiKey=${encodeURIComponent(key || '')}`);
     return await res.json();
   }
 };

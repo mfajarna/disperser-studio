@@ -8,8 +8,10 @@ import { ExternalLink, Key, User, Info, Save, CheckCircle, Users, Shield, Loader
 import { supabase } from '@/api/supabase';
 import { Helmet } from 'react-helmet-async';
 import { BASE_URL } from '@/api/api';
+import { useConfigStore } from '@/store/useConfigStore';
 
 export default function Settings() {
+  const { setConfig } = useConfigStore();
   const [userId, setUserId] = useState(localStorage.getItem('disperser_user_id') || '');
   const [apiKey, setApiKey] = useState(localStorage.getItem('disperser_key') || '');
   const [loading, setLoading] = useState(false);
@@ -92,6 +94,9 @@ export default function Settings() {
       // Update LocalStorage for quick access in API calls
       localStorage.setItem('disperser_user_id', userId);
       localStorage.setItem('disperser_key', apiKey);
+      
+      // Update global context state
+      setConfig(userId, apiKey);
 
       setSaved(true);
       setStatus('success');

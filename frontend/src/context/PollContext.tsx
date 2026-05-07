@@ -1,22 +1,11 @@
-import React, { createContext, useContext, useRef, useCallback, useEffect, useState, useMemo } from 'react';
+import React, { createContext, useContext, useRef, useCallback, useEffect } from 'react';
 import { api } from '../api/api';
-
-export interface LogEntry {
-  id: string;
-  timestamp: number;
-  message: string;
-  type: 'info' | 'success' | 'error' | 'warning';
-}
+import { useAppStore } from '../store/useAppStore';
+import { useConfigStore } from '../store/useConfigStore';
 
 interface PollContextType {
   startPoll: (id: string, opPath: string) => void;
   refresh: (silent?: boolean) => Promise<any[]>;
-  updateItemLocal: (id: string, updates: any) => void;
-  items: any[];
-  loading: boolean;
-  logs: LogEntry[];
-  addLog: (message: string, type?: LogEntry['type']) => void;
-  clearLogs: () => void;
 }
 
 const PollContext = createContext<PollContextType | null>(null);
@@ -28,27 +17,9 @@ export const usePollContext = () => {
 };
 
 export const PollProvider = ({ children }: { children: React.ReactNode }) => {
-  const [items, setItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const { setItems, setLoading, updateItemLocal, addLog } = useAppStore();
+  const { restoreFromDB } = useConfigStore();
   const polls = useRef<Record<string, any>>({});
-
-  const addLog = useCallback((message: string, type: LogEntry['type'] = 'info') => {
-    setLogs(prev => [...prev, {
-      id: Date.now().toString() + Math.random().toString(),
-      timestamp: Date.now(),
-      message,
-      type
-    }].slice(-50)); // Keep last 50 logs
-  }, []);
-
-  const clearLogs = useCallback(() => setLogs([]), []);
-
-  const updateItemLocal = useCallback((id: string, updates: any) => {
-    setItems(prev => prev.map(item =>
-      item.id === id ? { ...item, ...updates } : item
-    ));
-  }, []);
 
   const refresh = useCallback(async (silent: boolean = false) => {
     if (!silent) setLoading(true);
@@ -56,144 +27,125 @@ export const PollProvider = ({ children }: { children: React.ReactNode }) => {
       const data = await api.getQueue();
       setItems(data);
       return data;
-    } catch (e) {
-      console.error('Queue refresh failed:', e);
+    } catch (error: any) {
+      addLog(`Failed to fetch queue: ${error.message}`, 'error');
       return [];
     } finally {
       if (!silent) setLoading(false);
     }
-  }, []);
+  }, [setItems, setLoading, addLog]);
 
   const startPoll = useCallback((id: string, opPath: string) => {
-    if (polls.current[id]) return;
-    const isOperation = opPath.includes('operations/');
+    if (polls.current[id]) clearInterval(polls.current[id]);
+    
     const resourceId = opPath.split('/').pop();
-
-    addLog(`[Item:${id}] Starting poll for ${isOperation ? 'operation' : 'asset'}: ${resourceId}`, 'info');
+    addLog(`[Item:${id}] Monitoring asset status...`, 'info');
 
     polls.current[id] = setInterval(async () => {
       try {
-        let assetId = !isOperation ? resourceId : null;
+        const res = await api.checkOperation(resourceId!);
 
-        if (isOperation) {
-          const res = await api.checkOperation(resourceId!);
-
-          if (!res.success) {
-            addLog(`[Item:${id}] Operation check failed: ${res.error}`, 'error');
-            return;
-          }
-
-          const op = res.operation;
-          if (!op) return;
-
-          assetId = op.response?.assetId
-            || op.metadata?.assetId
-            || op.response?.asset_id
-            || op.metadata?.asset_id
-            || op.response?.path?.split('/').pop()
-            || op.assetId
-            || op.asset_id
-            || op.path?.replace('assets/', '');
-
-          const isDone = op.done === true || op.done === 'true' || !!op.response || !!op.error || !!assetId;
-
-          if (!isDone) return;
-
-          if (op.error) {
-            console.error(`[DEBUG] Poll Item:${id} Operation reported error:`, op.error);
-            addLog(`[Item:${id}] Operation error: ${op.error.message || JSON.stringify(op.error)}`, 'error');
-            clearInterval(polls.current[id]);
-            delete polls.current[id];
-            await api.updateItem(id, { status: 'error', errorMessage: op.error.message || 'Upload operation failed' });
-            updateItemLocal(id, { status: 'error', errorMessage: op.error.message || 'Upload operation failed' });
-            return;
-          }
-        }
-
-        if (!assetId) {
-          if (isOperation) {
-            addLog(`[Item:${id}] Operation done but no assetId found.`, 'warning');
-            clearInterval(polls.current[id]);
-            delete polls.current[id];
-            await api.updateItem(id, { status: 'success' });
-            updateItemLocal(id, { status: 'success' });
-          }
+        if (!res.success) {
+          addLog(`[Item:${id}] Polling stopped: ${res.error}`, 'error');
+          clearInterval(polls.current[id]);
+          delete polls.current[id];
+          
+          await api.updateItem(id, { status: 'error', errorMessage: res.error || 'Invalid API Key or Operation Error' });
+          updateItemLocal(id, { status: 'error', errorMessage: res.error || 'Invalid API Key or Operation Error' });
           return;
         }
 
-        // Check moderation
-        addLog(`[Item:${id}] Checking moderation status for asset: ${assetId}`, 'info');
-        const metaRes = await api.getAssetMeta(assetId!);
-
-        const robloxData = metaRes?.metadata || metaRes?.data || metaRes;
-        const moderationResult = robloxData?.moderationResult || robloxData?.moderation_result;
-
-        const moderationState = (moderationResult?.moderationState || moderationResult?.moderation_state || '').trim().toLowerCase();
-
-        addLog(`[Item:${id}] Moderation state detected: "${moderationState || 'unknown'}"`, 'info');
-
-        if (moderationState === 'approved' || moderationState === 'moderation_state_approved') {
+        const op = res.operation;
+        if (op.done) {
           clearInterval(polls.current[id]);
           delete polls.current[id];
 
-          await api.updateItem(id, { status: 'success', assetId });
-          await api.deleteFileOnly(id);
-          updateItemLocal(id, { status: 'success', assetId });
-          addLog(`[Item:${id}] Approved by Roblox!`, 'success');
-        } else if (moderationState === 'rejected' || moderationState === 'moderation_state_rejected') {
-          clearInterval(polls.current[id]);
-          delete polls.current[id];
-          await api.updateItem(id, { status: 'rejected', errorMessage: 'Rejected by Roblox Moderation', assetId });
-          await api.deleteFileOnly(id);
-          updateItemLocal(id, { status: 'rejected', errorMessage: 'Rejected by Roblox Moderation', assetId });
-          addLog(`[Item:${id}] Rejected by Roblox.`, 'error');
-        } else if (moderationState === 'reviewing' || moderationState === 'moderation_state_reviewing') {
-          updateItemLocal(id, { status: 'reviewing', assetId });
-        } else {
-          updateItemLocal(id, { assetId });
+          if (op.response) {
+            const assetId = op.response.assetId;
+            addLog(`[Item:${id}] Roblox approved transfer. Asset ID: ${assetId}`, 'success');
+            await api.updateItem(id, { status: 'reviewing', assetId });
+            updateItemLocal(id, { status: 'reviewing', assetId });
+            startModerationCheck(id, assetId);
+          } else if (op.error) {
+            const msg = op.error.message || 'Roblox rejected the file';
+            addLog(`[Item:${id}] Roblox Error: ${msg}`, 'error');
+            await api.updateItem(id, { status: 'error', errorMessage: msg });
+            updateItemLocal(id, { status: 'error', errorMessage: msg });
+          }
         }
-      } catch (e: any) {
-        addLog(`[Item:${id}] Error during poll: ${e.message}`, 'error');
+      } catch (err: any) {
+        addLog(`[Item:${id}] Connection error during polling. Retrying...`, 'warning');
       }
     }, 20000);
   }, [addLog, updateItemLocal]);
 
-  // On mount: refresh + auto-resume any items stuck in processing
+  const startModerationCheck = useCallback((id: string, assetId: string) => {
+    if (polls.current[id]) clearInterval(polls.current[id]);
+
+    polls.current[id] = setInterval(async () => {
+      try {
+        addLog(`[Item:${id}] Checking moderation status for asset: ${assetId}`, 'info');
+        const metaRes = await api.getAssetMeta(assetId!);
+
+        if (metaRes && metaRes.success === false) {
+          addLog(`[Item:${id}] Asset metadata check failed: ${metaRes.error}`, 'error');
+          clearInterval(polls.current[id]);
+          delete polls.current[id];
+          
+          await api.updateItem(id, { status: 'error', errorMessage: metaRes.error || 'Failed to check asset moderation' });
+          updateItemLocal(id, { status: 'error', errorMessage: metaRes.error || 'Failed to check asset moderation' });
+          return;
+        }
+
+        const robloxData = metaRes?.metadata || metaRes?.data || metaRes;
+        const moderationResult = robloxData?.moderationResult || robloxData?.moderation_result;
+        const moderationState = (moderationResult?.moderationState || moderationResult?.moderation_state || '').trim().toLowerCase();
+
+        if (moderationState === 'approved' || moderationState === 'moderation_state_approved') {
+          clearInterval(polls.current[id]);
+          delete polls.current[id];
+          addLog(`[Item:${id}] Moderation PASSED! Asset is live.`, 'success');
+          await api.updateItem(id, { status: 'success' });
+          updateItemLocal(id, { status: 'success' });
+        } else if (moderationState === 'rejected' || moderationState === 'moderation_state_rejected') {
+          clearInterval(polls.current[id]);
+          delete polls.current[id];
+          addLog(`[Item:${id}] Moderation REJECTED by Roblox.`, 'error');
+          await api.updateItem(id, { status: 'rejected' });
+          updateItemLocal(id, { status: 'rejected' });
+        }
+      } catch (err) {
+        // Silent retry for meta
+      }
+    }, 30000);
+  }, [addLog, updateItemLocal]);
+
   useEffect(() => {
     const init = async () => {
+      const storedUser = localStorage.getItem('disperser_user');
+      if (storedUser) {
+        const { id } = JSON.parse(storedUser);
+        await restoreFromDB(id);
+      }
+
       const data = await refresh();
       if (Array.isArray(data)) {
         data.forEach((item: any) => {
           if ((item.status === 'processing' || item.status === 'reviewing') && item.operationPath) {
-            startPoll(item.id, item.operationPath);
+            if (item.status === 'processing') startPoll(item.id, item.operationPath);
+            else if (item.assetId) startModerationCheck(item.id, item.assetId);
           }
         });
       }
     };
     init();
 
-    // Background refresh every 30s (silent)
     const interval = setInterval(() => refresh(true), 30000);
-
-    return () => {
-      clearInterval(interval);
-      // Don't clear polls on unmount — this provider should live at the app root
-    };
-  }, [refresh, startPoll]);
-
-  const value = useMemo(() => ({
-    startPoll,
-    refresh,
-    updateItemLocal,
-    items,
-    loading,
-    logs,
-    addLog,
-    clearLogs
-  }), [startPoll, refresh, updateItemLocal, items, loading, logs, addLog, clearLogs]);
+    return () => clearInterval(interval);
+  }, [refresh, startPoll, startModerationCheck, restoreFromDB]);
 
   return (
-    <PollContext.Provider value={value}>
+    <PollContext.Provider value={{ startPoll, refresh }}>
       {children}
     </PollContext.Provider>
   );

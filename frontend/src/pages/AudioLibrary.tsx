@@ -42,18 +42,22 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 
+import { useAppStore } from '../store/useAppStore';
+import { useConfigStore } from '../store/useConfigStore';
+
 export default function AudioLibrary() {
   const userStr = localStorage.getItem('disperser_user');
   const user = userStr ? JSON.parse(userStr) : {};
   const currentRole = user.current_role || 'Free';
 
-  const { items, loading, refresh, updateItemLocal, startPoll, logs, addLog, clearLogs } = usePollContext();
+  const { items, loading, updateItemLocal, logs, addLog, clearLogs } = useAppStore();
+  const { hasConfig, loadingConfig } = useConfigStore();
+  const { startPoll, refresh } = usePollContext();
   const [search, setSearch] = useState('');
   const [uploadingIds, setUploadingIds] = useState<Set<string>>(new Set());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isBulkUploading, setIsBulkUploading] = useState(false);
   const [bulkProgress, setBulkProgress] = useState(0);
-  const hasConfig = localStorage.getItem('disperser_key') && localStorage.getItem('disperser_user_id');
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -239,7 +243,7 @@ export default function AudioLibrary() {
       </div>
 
       {/* Main Header & Search */}
-      {!hasConfig && (
+      {!loadingConfig && !hasConfig && (
         <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 flex items-center gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
           <AlertCircle className="text-amber-400 shrink-0" size={20} />
           <p className="text-sm text-amber-200/80">

@@ -5,8 +5,12 @@ import { Music, Image as ImageIcon, CheckCircle, Clock, AlertCircle, MessageSqua
 import { Button } from '@/components/ui/button';
 import { api } from '../api/api';
 import { supabase } from '../api/supabase';
+import { useAppStore } from '../store/useAppStore';
+import { useConfigStore } from '../store/useConfigStore';
 
 export default function Overview() {
+  const { items } = useAppStore();
+  const { hasConfig, loadingConfig } = useConfigStore();
   const userStr = localStorage.getItem('disperser_user');
   const user = userStr ? JSON.parse(userStr) : {};
   const username = user.username || 'Creator';
@@ -20,8 +24,6 @@ export default function Overview() {
   const [totalPending, setTotalPending] = useState(0);
   const [dailyUploads, setDailyUploads] = useState(0);
   const dailyLimit = currentRole === 'Free' ? 3 : Infinity;
-  
-  const hasConfig = localStorage.getItem('disperser_key') && localStorage.getItem('disperser_user_id');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -33,7 +35,12 @@ export default function Overview() {
 
       // Fetch latest user info
       if (user.id) {
-        const { data: dbUser } = await supabase.from('users').select('current_role, subscription_expires_at, uploads_today, last_upload_date').eq('id', user.id).single();
+        const { data: dbUser } = await supabase
+          .from('users')
+          .select('current_role, subscription_expires_at, uploads_today, last_upload_date')
+          .eq('id', user.id)
+          .single();
+
         if (dbUser) {
           setCurrentRole(dbUser.current_role);
           const newExpireDate = dbUser.subscription_expires_at
@@ -58,7 +65,7 @@ export default function Overview() {
       }
     };
     fetchData();
-  }, [user.id, currentRole]);
+  }, [user.id]);
 
   const stats = [
     { label: 'Total Audios', value: totalAudios.toString(), icon: <Music className="text-cyan-400" />, trend: 'Uploaded assets' },
@@ -88,7 +95,7 @@ export default function Overview() {
         <p className="page-desc">Welcome back to Disperser Studio. Here's a quick look at your assets.</p>
       </div>
 
-      {!hasConfig && (
+      {!loadingConfig && !hasConfig && (
         <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 animate-in slide-in-from-top-4 duration-500">
           <div className="flex items-start gap-4">
             <div className="w-12 h-12 rounded-xl bg-red-500/20 flex items-center justify-center shrink-0">
