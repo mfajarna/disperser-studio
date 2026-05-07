@@ -25,19 +25,13 @@ const hasCookies = fs.existsSync(cookiesPath);
 const ytProxy = process.env.YT_PROXY;
 
 const ytConfig = {
-  executable: os.platform() === 'win32' ? 'yt-dlp' : 'python3',
-  baseArgs: os.platform() === 'win32' 
-    ? [
-        ...(hasCookies ? ['--cookies', cookiesPath, '--no-check-certificates'] : ['--no-check-certificates']),
-        ...(ytProxy ? ['--proxy', ytProxy] : [])
-      ] 
-    : [
-        '/usr/local/bin/yt-dlp', 
-        '--force-ipv4', 
-        '--no-check-certificates', 
-        ...(hasCookies ? ['--cookies', cookiesPath] : []),
-        ...(ytProxy ? ['--proxy', ytProxy] : [])
-      ]
+  executable: os.platform() === 'win32' ? 'yt-dlp' : (process.env.YT_DLP_PATH || 'yt-dlp'),
+  baseArgs: [
+    '--no-check-certificates',
+    ...(hasCookies ? ['--cookies', cookiesPath] : []),
+    ...(ytProxy ? ['--proxy', ytProxy] : []),
+    ...(os.platform() !== 'win32' ? ['--force-ipv4'] : [])
+  ]
 };
 
 if (hasCookies) {
@@ -461,7 +455,7 @@ app.post('/api/youtube/download', async (req, res) => {
         '--rm-cache-dir',
         '--no-check-certificates',
         '--format', 'bestaudio/best',
-        '--ffmpeg-location', os.platform() === 'win32' ? 'ffmpeg' : '/usr/bin/ffmpeg',
+        '--ffmpeg-location', os.platform() === 'win32' ? 'ffmpeg' : (process.env.FFMPEG_PATH || 'ffmpeg'),
         '-x',
         '--audio-format', 'mp3',
         '--audio-quality', '0',
