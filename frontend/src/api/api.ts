@@ -77,13 +77,16 @@ export const api = {
 
   async addToQueue(name: string, description: string, buffer: Uint8Array | Blob | ArrayBuffer) {
     const id = crypto.randomUUID();
-    const filePath = `audio_${id}.wav`;
+    const isMp3 = name.toLowerCase().endsWith('.mp3');
+    const ext = isMp3 ? '.mp3' : '.wav';
+    const contentType = isMp3 ? 'audio/mpeg' : 'audio/wav';
+    const filePath = `audio_${id}${ext}`;
     
     // Upload file to Supabase Storage
     const { error: uploadError } = await supabase.storage
       .from('audios')
       .upload(filePath, buffer, {
-        contentType: 'audio/wav',
+        contentType,
         upsert: true
       });
 

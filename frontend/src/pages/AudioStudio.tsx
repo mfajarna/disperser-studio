@@ -3,6 +3,7 @@ import WaveSurfer from 'wavesurfer.js';
 import RegionsPlugin from 'wavesurfer.js/dist/plugins/regions.esm.js';
 import * as Tone from 'tone';
 import audioBufferToWav from 'audiobuffer-to-wav';
+import { encodeMp3 } from '@/utils/mp3Encoder';
 import { api } from '../api/api';
 import { useNavigate } from 'react-router-dom';
 import { usePollContext } from '@/context/PollContext';
@@ -333,9 +334,8 @@ export default function AudioStudio() {
         trimStart: trim.start,
         trimEnd: trim.end
       });
-      const wav = audioBufferToWav((processed as any).get ? (processed as any).get() : processed);
-      const wavBlob = new Blob([wav], { type: 'audio/wav' });
-      await api.addToQueue(assetName, 'Uploaded via Studio', wavBlob);
+      const mp3Blob = await encodeMp3((processed as any).get ? (processed as any).get() : processed);
+      await api.addToQueue(assetName.endsWith('.mp3') ? assetName : assetName + '.mp3', 'Uploaded via Studio', mp3Blob);
 
       setFile(null);
       setAssetName('');
