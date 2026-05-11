@@ -313,10 +313,7 @@ export default function AudioStudio() {
     const trimDuration = actualTrimEnd - actualTrimStart;
     const finalDuration = trimDuration / speed;
 
-    if (finalDuration > 420) {
-      setSaveError(`Final audio is too long (${Math.floor(finalDuration / 60)}m ${Math.round(finalDuration % 60)}s). Maximum allowed is 7 minutes. Please trim the audio or increase speed.`);
-      return;
-    }
+    // Duration limit removed
 
     setLoading(true);
     setLoadingMsg('Applying effects & preparing asset...');
@@ -701,8 +698,7 @@ export default function AudioStudio() {
             <Sparkles size={13} className="text-cyan-400 mt-1.5 shrink-0" />
             <p className="text-sm text-slate-500 leading-relaxed">
               <span className="text-slate-400 font-medium">Pro tip:</span> For best results on Roblox,
-              keep your audio under 7 minutes and ensure the final volume isn't too loud (stay under 150%).
-              Roblox supports audio up to 7 minutes for free accounts.
+              ensure the final volume isn't too loud (stay under 150%) to avoid moderation issues.
             </p>
           </div>
         </div>

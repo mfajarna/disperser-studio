@@ -149,9 +149,7 @@ export const BulkUploadProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         audioCtx.close();
 
         const finalDuration = ( (item.trim?.end || original.duration) - (item.trim?.start || 0) ) / item.speed;
-        if (finalDuration > 420) {
-          throw new Error(`Asset "${item.assetName || item.name}" is too long (${Math.floor(finalDuration / 60)}m ${Math.round(finalDuration % 60)}s). Max 7 mins.`);
-        }
+        // Duration limit removed
 
         const processed = await processAudio(original, {
           volume: item.volume,
