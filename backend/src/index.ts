@@ -44,39 +44,229 @@ const ytConfig = {
   executable: os.platform() === 'win32' ? 'yt-dlp' : (process.env.YT_DLP_PATH || 'yt-dlp')
 };
 
-// Helper to get base args with dynamic cookies
-const getYtBaseArgs = () => {
-  let currentCookiesPath = null;
+// --- Persistent cookie file (written ONCE at startup, not per-request) ---
+let persistentCookiePath: string | null = null;
+
+const initCookies = (): void => {
   const localCookies = path.resolve(__dirname, '../cookies.txt');
-  
-  if (fs.existsSync(localCookies)) {
-    currentCookiesPath = localCookies;
-  } else if (process.env.YT_COOKIES) {
-    try {
-      const tempPath = path.join(os.tmpdir(), `cookies-dl-${Date.now()}.txt`);
-      fs.writeFileSync(tempPath, process.env.YT_COOKIES);
-      currentCookiesPath = tempPath;
-    } catch (e) {
-      console.error('Failed to write dynamic cookies:', e);
+
+  if (process.env.YT_COOKIES) {
+    const val = process.env.YT_COOKIES;
+    if (val.includes('# Netscape HTTP Cookie File') || val.includes('curl.haxx.se') || val.includes('\tTRUE\t')) {
+      try {
+        const tempPath = path.join(os.tmpdir(), `cookies-persistent.txt`);
+        fs.writeFileSync(tempPath, val.replace(/\\n/g, '\n'));
+        persistentCookiePath = tempPath;
+        console.log(`🍪 Persistent cookie file written: ${tempPath}`);
+      } catch (e) {
+        console.error('Failed to write persistent cookies:', e);
+      }
+    }
+  } else if (fs.existsSync(localCookies)) {
+    const content = fs.readFileSync(localCookies, 'utf-8');
+    if (content.includes('# Netscape HTTP Cookie File') || content.includes('curl.haxx.se') || content.includes('\tTRUE\t')) {
+      persistentCookiePath = localCookies;
+      console.log(`🍪 Using local cookie file: ${localCookies}`);
     }
   }
 
+  if (!persistentCookiePath) {
+    console.log('⚠️ No cookies available — some strategies will be limited');
+  }
+};
+
+// Initialize cookies once at startup
+initCookies();
+
+// --- Download queue to limit concurrency and avoid YouTube rate limits ---
+const MAX_CONCURRENT_DOWNLOADS = 2;
+let activeDownloads = 0;
+const downloadQueue: Array<{ resolve: (v: void) => void }> = [];
+
+const acquireDownloadSlot = (): Promise<void> => {
+  if (activeDownloads < MAX_CONCURRENT_DOWNLOADS) {
+    activeDownloads++;
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    downloadQueue.push({ resolve });
+  });
+};
+
+const releaseDownloadSlot = (): void => {
+  if (downloadQueue.length > 0) {
+    const next = downloadQueue.shift()!;
+    next.resolve();
+  } else {
+    activeDownloads = Math.max(0, activeDownloads - 1);
+  }
+};
+
+// Build yt-dlp download strategies — tried in order until one succeeds
+const getDownloadStrategies = () => {
+  const cookiesArgs = persistentCookiePath ? ['--cookies', persistentCookiePath] : [];
+  const proxyArgs = process.env.YT_PROXY ? ['--proxy', process.env.YT_PROXY] : [];
+
+  console.log(`🍪 Cookies: ${persistentCookiePath ? 'YES' : 'NO'}`);
+
+  const baseArgs = [
+    '--no-check-certificates',
+    '--force-ipv4',
+    '--sleep-requests', '0.5',
+    '--add-header', 'Accept-Language: en-US,en;q=0.9',
+    ...proxyArgs,
+  ];
+
+  const strategies = [
+    // Strategy 1: default + cookies (let yt-dlp auto-select best client; Deno handles n-challenge)
+    ...(cookiesArgs.length ? [
+      { name: 'default+cookies', args: [...baseArgs, ...cookiesArgs] },
+    ] : []),
+    // Strategy 2: mweb (lightweight, works without cookies)
+    { name: 'mweb', args: [...baseArgs, '--extractor-args', 'youtube:player_client=mweb'] },
+    // Strategy 3: android_vr (no cookies needed, different fingerprint)
+    { name: 'android_vr', args: [...baseArgs, '--extractor-args', 'youtube:player_client=android_vr'] },
+    // Strategy 4: web_creator + cookies (needs PO token; bgutil plugin handles it)
+    ...(cookiesArgs.length ? [
+      { name: 'web_creator+cookies', args: [...baseArgs, '--extractor-args', 'youtube:player_client=web_creator', ...cookiesArgs] },
+    ] : []),
+    // Strategy 5: tv (TV client, different auth flow)
+    { name: 'tv', args: [...baseArgs, '--extractor-args', 'youtube:player_client=tv'] },
+  ];
+
+  console.log(`📋 Strategies: ${strategies.map(s => s.name).join(' → ')}`);
+  return strategies;
+};
+
+// --- Invidious/Piped API Fallback ---
+const INVIDIOUS_INSTANCES = [
+  'https://inv.nadeko.net',
+  'https://invidious.nerdvpn.de',
+  'https://invidious.jing.rocks',
+  'https://vid.puffyan.us',
+];
+
+const PIPED_INSTANCES = [
+  'https://pipedapi.kavin.rocks',
+  'https://api.piped.yt',
+];
+
+const extractVideoId = (url: string): string | null => {
+  try {
+    const u = new URL(url);
+    if (u.hostname === 'youtu.be') return u.pathname.slice(1).split('?')[0];
+    if (u.hostname.includes('youtube.com')) return u.searchParams.get('v');
+  } catch {}
+  const match = url.match(/(?:v=|\/)([\w-]{11})(?:[&?\/]|$)/);
+  return match ? match[1] : null;
+};
+
+const downloadViaInvidious = async (videoId: string, tmpDir: string, ffmpegLocation: string): Promise<{ file: string; title: string } | null> => {
+  for (const instance of INVIDIOUS_INSTANCES) {
+    try {
+      console.log(`🌐 Trying Invidious fallback: ${instance}`);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+      const resp = await fetch(`${instance}/api/v1/videos/${videoId}`, { signal: controller.signal });
+      clearTimeout(timeout);
+      if (!resp.ok) continue;
+
+      const data = await resp.json() as any;
+      const title = data.title || `YouTube Audio (${videoId})`;
+
+      // Find best audio stream
+      const audioFormats = (data.adaptiveFormats || [])
+        .filter((f: any) => f.type?.startsWith('audio/'))
+        .sort((a: any, b: any) => (b.bitrate || 0) - (a.bitrate || 0));
+
+      if (audioFormats.length === 0) continue;
+
+      const audioUrl = audioFormats[0].url;
+      if (!audioUrl) continue;
+
+      // Download audio stream
+      const audioResp = await fetch(audioUrl);
+      if (!audioResp.ok) continue;
+
+      const rawFile = path.join(tmpDir, 'raw_audio');
+      const buffer = Buffer.from(await audioResp.arrayBuffer());
+      fs.writeFileSync(rawFile, buffer);
+
+      // Convert to MP3 with ffmpeg
+      const outputFile = path.join(tmpDir, 'audio.mp3');
+      await new Promise<void>((resolve, reject) => {
+        execFile(ffmpegLocation, ['-i', rawFile, '-vn', '-ab', '192k', '-ar', '44100', '-y', outputFile],
+          { timeout: 60000 }, (err) => err ? reject(err) : resolve());
+      });
+
+      if (fs.existsSync(outputFile)) {
+        console.log(`✅ Invidious fallback succeeded via ${instance}`);
+        return { file: outputFile, title };
+      }
+    } catch (e: any) {
+      console.warn(`❌ Invidious ${instance} failed: ${e.message}`);
+    }
+  }
+  return null;
+};
+
+const downloadViaPiped = async (videoId: string, tmpDir: string, ffmpegLocation: string): Promise<{ file: string; title: string } | null> => {
+  for (const instance of PIPED_INSTANCES) {
+    try {
+      console.log(`🌐 Trying Piped fallback: ${instance}`);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+      const resp = await fetch(`${instance}/streams/${videoId}`, { signal: controller.signal });
+      clearTimeout(timeout);
+      if (!resp.ok) continue;
+
+      const data = await resp.json() as any;
+      const title = data.title || `YouTube Audio (${videoId})`;
+
+      const audioStreams = (data.audioStreams || [])
+        .sort((a: any, b: any) => (b.bitrate || 0) - (a.bitrate || 0));
+
+      if (audioStreams.length === 0) continue;
+
+      const audioUrl = audioStreams[0].url;
+      if (!audioUrl) continue;
+
+      const audioResp = await fetch(audioUrl);
+      if (!audioResp.ok) continue;
+
+      const rawFile = path.join(tmpDir, 'raw_audio');
+      const buffer = Buffer.from(await audioResp.arrayBuffer());
+      fs.writeFileSync(rawFile, buffer);
+
+      const outputFile = path.join(tmpDir, 'audio.mp3');
+      await new Promise<void>((resolve, reject) => {
+        execFile(ffmpegLocation, ['-i', rawFile, '-vn', '-ab', '192k', '-ar', '44100', '-y', outputFile],
+          { timeout: 60000 }, (err) => err ? reject(err) : resolve());
+      });
+
+      if (fs.existsSync(outputFile)) {
+        console.log(`✅ Piped fallback succeeded via ${instance}`);
+        return { file: outputFile, title };
+      }
+    } catch (e: any) {
+      console.warn(`❌ Piped ${instance} failed: ${e.message}`);
+    }
+  }
+  return null;
+};
+
+// Legacy helper for /api/youtube/info (simple, non-critical)
+const getYtBaseArgs = () => {
   const args = [
     '--no-check-certificates',
     '--no-warnings',
     '--force-ipv4',
-    '--sleep-requests', '1',
+    '--sleep-requests', '0.5',
     '--add-header', 'Accept-Language: en-US,en;q=0.9',
-    // Improved bypass strategy
-    '--extractor-args', 'youtube:player_client=android,web;player_skip=web_creator',
-    ...(currentCookiesPath ? ['--cookies', currentCookiesPath] : []),
+    ...(persistentCookiePath ? ['--cookies', persistentCookiePath] : []),
     ...(process.env.YT_PROXY ? ['--proxy', process.env.YT_PROXY] : [])
   ];
-
-  return {
-    args,
-    tempFile: currentCookiesPath && currentCookiesPath.includes('cookies-dl-') ? currentCookiesPath : null
-  };
+  return { args, tempFile: null };
 };
 
 // Initialize Supabase
@@ -395,11 +585,11 @@ app.get('/api/roblox/operation/:id', async (req, res) => {
       headers: { 'x-api-key': trimmedKey }
     });
     const data = await response.json();
-    
+
     if (!response.ok) {
       return res.status(response.status).json({ success: false, error: data.message || 'Roblox Operation Error', details: data });
     }
-    
+
     res.json({ success: true, operation: data });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
@@ -460,44 +650,65 @@ app.post('/api/youtube/download', async (req, res) => {
 
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'disperser-'));
   const outputFile = path.join(tmpDir, 'audio.mp3');
+  const ffmpegLocation = os.platform() === 'win32'
+    ? 'ffmpeg'
+    : (process.env.FFMPEG_PATH || (fs.existsSync('/opt/homebrew/bin/ffmpeg') ? '/opt/homebrew/bin/ffmpeg' : 'ffmpeg'));
+
+  // Wait for a download slot (limits concurrent YouTube requests)
+  console.log(`⏳ Queue: ${activeDownloads}/${MAX_CONCURRENT_DOWNLOADS} active, ${downloadQueue.length} waiting`);
+  await acquireDownloadSlot();
 
   try {
-    // Step 0: Handle Dynamic Cookies
-    const { args: finalBaseArgs, tempFile: currentCookiesPath } = getYtBaseArgs();
-
-    // Step 1: Get title and duration
+    // Step 1: Get title (best-effort, non-blocking)
+    const videoId = extractVideoId(url) || 'audio';
     const info: any = await new Promise((resolve) => {
+      const { args } = getYtBaseArgs();
       execFile(ytConfig.executable, [
-        ...finalBaseArgs,
+        ...args,
         '--print', '%(title)s',
         '--print', '%(duration)s',
         '--no-download',
         url
       ], { timeout: 20000 }, (err, stdout) => {
-        const urlObj = new URL(url);
-        const videoId = urlObj.searchParams.get('v') || url.split('/').pop() || 'audio';
-
         if (err) {
+          console.warn('⚠️ Could not fetch video info, using fallback title');
           resolve({ title: `YouTube Audio (${videoId})`, duration: 0 });
         } else {
           const lines = stdout.trim().split('\n');
+          const rawTitle = lines[0]?.trim() || '';
+          const isValidTitle = rawTitle && rawTitle !== 'NA' && rawTitle !== 'nan' && !rawTitle.startsWith('ERROR');
           resolve({
-            title: lines[0] || `YouTube Audio (${videoId})`,
+            title: isValidTitle ? rawTitle : `YouTube Audio (${videoId})`,
             duration: parseFloat(lines[1]) || 0
           });
         }
       });
     });
 
-    const title = info.title;
+    let title = info.title;
+    console.log(`🎵 Video title: "${title}"`);
 
-    // Step 2: Download and convert to MP3
-    await new Promise((resolve, reject) => {
-      const finalArgs = [
-        ...finalBaseArgs,
+    // Step 2: Try download with multiple yt-dlp strategies
+    const strategies = getDownloadStrategies();
+    let lastError = '';
+    let ytdlpSucceeded = false;
+
+    for (const strategy of strategies) {
+      // Clean up any previous attempt's files
+      try {
+        const prevFiles = fs.readdirSync(tmpDir);
+        for (const f of prevFiles) {
+          fs.unlinkSync(path.join(tmpDir, f));
+        }
+      } catch { }
+
+      console.log(`🔄 Trying strategy: "${strategy.name}" for ${url}`);
+
+      const downloadArgs = [
+        ...strategy.args,
         '--rm-cache-dir',
-        '--format', 'ba*/bestaudio/best',
-        '--ffmpeg-location', os.platform() === 'win32' ? 'ffmpeg' : (process.env.FFMPEG_PATH || 'ffmpeg'),
+        '--format', 'bestaudio/best/ba/b',
+        '--ffmpeg-location', ffmpegLocation,
         '-x',
         '--audio-format', 'mp3',
         '--audio-quality', '0',
@@ -506,56 +717,141 @@ app.post('/api/youtube/download', async (req, res) => {
         url
       ];
 
-      execFile(ytConfig.executable, finalArgs, { timeout: 180000 }, (err, stdout, stderr) => {
-        // Cleanup dynamic cookies file if created
-        if (currentCookiesPath && currentCookiesPath.includes('cookies-dl-')) {
-          try { fs.unlinkSync(currentCookiesPath); } catch (e) { }
-        }
-
-        if (err) {
-          console.error('❌ YT-DLP Exec Error:', err);
-          console.error('❌ YT-DLP Stderr:', stderr);
-          reject(new Error(stderr || err.message));
-        } else {
-          console.log('✅ YT-DLP Success Stdout:', stdout);
-          resolve(undefined);
-        }
+      const result: { success: boolean; error?: string; stdout?: string } = await new Promise((resolve) => {
+        execFile(ytConfig.executable, downloadArgs, { timeout: 120000 }, (err, stdout, stderr) => {
+          if (err) {
+            console.error(`❌ Strategy "${strategy.name}" failed:`, (stderr || err.message).substring(0, 300));
+            resolve({ success: false, error: stderr || err.message });
+          } else {
+            console.log(`✅ Strategy "${strategy.name}" succeeded`);
+            resolve({ success: true, stdout });
+          }
+        });
       });
-    });
 
-    // Find the actual output file
-    let actualFile = outputFile;
-    if (!fs.existsSync(actualFile)) {
-      const files = fs.readdirSync(tmpDir);
-      const mp3File = files.find(f => f.endsWith('.mp3'));
-      if (mp3File) {
-        actualFile = path.join(tmpDir, mp3File);
-      } else {
-        const availableFiles = fs.readdirSync(tmpDir);
-        console.error('❌ MP3 file not found. Available files in tmp:', availableFiles);
-        throw new Error(`MP3 conversion failed - no output file found. Found: ${availableFiles.join(', ') || 'nothing'}`);
+      if (result.success) {
+        // Download succeeded — find the output file
+        let actualFile = outputFile;
+        if (!fs.existsSync(actualFile)) {
+          const files = fs.readdirSync(tmpDir);
+          const mp3File = files.find(f => f.endsWith('.mp3'));
+          if (mp3File) {
+            actualFile = path.join(tmpDir, mp3File);
+          } else {
+            const availableFiles = fs.readdirSync(tmpDir);
+            console.error('❌ MP3 file not found. Available files in tmp:', availableFiles);
+            throw new Error(`MP3 conversion failed - no output file found. Found: ${availableFiles.join(', ') || 'nothing'}`);
+          }
+        }
+
+        // If title is still a fallback, try fetching it with the SAME strategy that worked
+        if (title.startsWith('YouTube Audio (')) {
+          const fetchedTitle: string = await new Promise((resolve) => {
+            execFile(ytConfig.executable, [
+              ...strategy.args,
+              '--print', '%(title)s',
+              '--no-download',
+              url
+            ], { timeout: 10000 }, (err, stdout) => {
+              resolve(err ? '' : (stdout.trim().split('\n')[0]?.trim() || ''));
+            });
+          });
+
+          if (fetchedTitle && fetchedTitle !== 'NA' && !fetchedTitle.startsWith('ERROR')) {
+            title = fetchedTitle;
+          }
+        }
+
+        ytdlpSucceeded = true;
+        const stat = fs.statSync(actualFile);
+
+        res.setHeader('Content-Type', 'audio/mpeg');
+        res.setHeader('Content-Length', stat.size.toString());
+        res.setHeader('X-Audio-Title', encodeURIComponent(title));
+        res.setHeader('Access-Control-Expose-Headers', 'X-Audio-Title');
+
+        const readStream = fs.createReadStream(actualFile);
+        readStream.pipe(res);
+
+        readStream.on('end', () => {
+          releaseDownloadSlot();
+          try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { }
+        });
+
+        readStream.on('error', () => {
+          releaseDownloadSlot();
+          try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { }
+        });
+
+        return; // Success — exit the handler
+      }
+
+      lastError = result.error || 'Unknown error';
+
+      // If rate-limited (429), skip all remaining yt-dlp strategies immediately
+      if (lastError.includes('429') || lastError.includes('Too Many Requests')) {
+        console.warn('⚠️ Rate-limited (429). Skipping to API fallbacks.');
+        break;
+      }
+
+      // If the error is NOT about format/bot/token, don't bother retrying
+      if (!lastError.includes('format') && !lastError.includes('Sign in') && !lastError.includes('bot') && !lastError.includes('DRM') && !lastError.includes('PO Token') && !lastError.includes('403') && !lastError.includes('Only images')) {
+        break;
+      }
+
+      // Short delay between strategies
+      await new Promise(r => setTimeout(r, 1000));
+    }
+
+    // Step 3: yt-dlp failed — try Invidious API fallback
+    if (!ytdlpSucceeded && videoId) {
+      console.log('🌐 All yt-dlp strategies failed. Trying API fallbacks...');
+
+      // Clean up tmp dir for fallback
+      try {
+        const prevFiles = fs.readdirSync(tmpDir);
+        for (const f of prevFiles) fs.unlinkSync(path.join(tmpDir, f));
+      } catch { }
+
+      // Try Invidious first
+      let fallbackResult = await downloadViaInvidious(videoId, tmpDir, ffmpegLocation);
+
+      // If Invidious failed, try Piped
+      if (!fallbackResult) {
+        fallbackResult = await downloadViaPiped(videoId, tmpDir, ffmpegLocation);
+      }
+
+      if (fallbackResult) {
+        title = fallbackResult.title || title;
+        const stat = fs.statSync(fallbackResult.file);
+
+        res.setHeader('Content-Type', 'audio/mpeg');
+        res.setHeader('Content-Length', stat.size.toString());
+        res.setHeader('X-Audio-Title', encodeURIComponent(title));
+        res.setHeader('Access-Control-Expose-Headers', 'X-Audio-Title');
+
+        const readStream = fs.createReadStream(fallbackResult.file);
+        readStream.pipe(res);
+
+        readStream.on('end', () => {
+          releaseDownloadSlot();
+          try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { }
+        });
+
+        readStream.on('error', () => {
+          releaseDownloadSlot();
+          try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { }
+        });
+
+        return;
       }
     }
 
-    const stat = fs.statSync(actualFile);
-
-    res.setHeader('Content-Type', 'audio/mpeg');
-    res.setHeader('Content-Length', stat.size.toString());
-    res.setHeader('X-Audio-Title', encodeURIComponent(title));
-    res.setHeader('Access-Control-Expose-Headers', 'X-Audio-Title');
-
-    const readStream = fs.createReadStream(actualFile);
-    readStream.pipe(res);
-
-    readStream.on('end', () => {
-      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { }
-    });
-
-    readStream.on('error', () => {
-      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { }
-    });
+    // All methods failed
+    throw new Error('Download gagal: Semua metode (yt-dlp + API fallback) gagal. Coba lagi dalam beberapa menit.');
 
   } catch (error) {
+    releaseDownloadSlot();
     try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { }
     console.error('YouTube download failed:', error.message);
     res.status(500).json({ success: false, error: error.message });
