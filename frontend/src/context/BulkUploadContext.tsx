@@ -3,7 +3,6 @@ import { api } from '@/api/api';
 import * as Tone from 'tone';
 import audioBufferToWav from 'audiobuffer-to-wav';
 import { processAudio } from '@/utils/processor';
-import { encodeMp3 } from '@/utils/mp3Encoder';
 
 interface BulkItem {
   id: string;
@@ -160,8 +159,9 @@ export const BulkUploadProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           trimEnd: item.trim?.end || original.duration
         });
 
-        const mp3Blob = await encodeMp3(processed.get()!);
-        await api.addToQueue((item.assetName || item.name) + '.mp3', 'Bulk Upload via Studio', mp3Blob);
+        const rawWavBuffer = audioBufferToWav(processed.get()!);
+        const wavBlob = new Blob([rawWavBuffer], { type: 'audio/wav' });
+        await api.addToQueue((item.assetName || item.name) + '.ogg', 'Bulk Upload via Studio', wavBlob);
       }
       
       setBulkQueue([]);

@@ -192,10 +192,10 @@ const downloadViaInvidious = async (videoId: string, tmpDir: string, ffmpegLocat
       const buffer = Buffer.from(await audioResp.arrayBuffer());
       fs.writeFileSync(rawFile, buffer);
 
-      // Convert to MP3 with ffmpeg
-      const outputFile = path.join(tmpDir, 'audio.mp3');
+      // Convert to OGG with ffmpeg
+      const outputFile = path.join(tmpDir, 'audio.ogg');
       await new Promise<void>((resolve, reject) => {
-        execFile(ffmpegLocation, ['-i', rawFile, '-vn', '-ab', '192k', '-ar', '44100', '-y', outputFile],
+        execFile(ffmpegLocation, ['-i', rawFile, '-vn', '-codec:a', 'libvorbis', '-qscale:a', '5', '-y', outputFile],
           { timeout: 60000 }, (err) => err ? reject(err) : resolve());
       });
 
@@ -238,9 +238,9 @@ const downloadViaPiped = async (videoId: string, tmpDir: string, ffmpegLocation:
       const buffer = Buffer.from(await audioResp.arrayBuffer());
       fs.writeFileSync(rawFile, buffer);
 
-      const outputFile = path.join(tmpDir, 'audio.mp3');
+      const outputFile = path.join(tmpDir, 'audio.ogg');
       await new Promise<void>((resolve, reject) => {
-        execFile(ffmpegLocation, ['-i', rawFile, '-vn', '-ab', '192k', '-ar', '44100', '-y', outputFile],
+        execFile(ffmpegLocation, ['-i', rawFile, '-vn', '-codec:a', 'libvorbis', '-qscale:a', '5', '-y', outputFile],
           { timeout: 60000 }, (err) => err ? reject(err) : resolve());
       });
 
@@ -408,6 +408,7 @@ app.post('/api/roblox/upload', upload.single('file'), async (req, res) => {
     return res.status(400).json({ success: false, error: 'Missing API Key or File' });
   }
 
+  let tmpDir = '';
   try {
     // RATE LIMIT CHECK
     if (supabaseUserId) {
@@ -432,8 +433,23 @@ app.post('/api/roblox/upload', upload.single('file'), async (req, res) => {
       }
     }
 
-    const formData = new FormData();
-    const fileBlob = new Blob([new Uint8Array(file.buffer)], { type: file.mimetype });
+    const ffmpegLocation = os.platform() === 'win32'
+      ? 'ffmpeg'
+      : (process.env.FFMPEG_PATH || (fs.existsSync('/opt/homebrew/bin/ffmpeg') ? '/opt/homebrew/bin/ffmpeg' : 'ffmpeg'));
+
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'disperser-upload-'));
+    const inputPath = path.join(tmpDir, 'input_audio');
+    const outputPath = path.join(tmpDir, 'audio.ogg');
+    fs.writeFileSync(inputPath, file.buffer);
+
+    // Convert using ffmpeg to ogg
+    await new Promise<void>((resolve, reject) => {
+      execFile(ffmpegLocation, ['-i', inputPath, '-vn', '-codec:a', 'libvorbis', '-qscale:a', '5', '-y', outputPath],
+        { timeout: 60000 }, (err) => err ? reject(err) : resolve());
+    });
+
+    const oggBuffer = fs.readFileSync(outputPath);
+    const fileBlob = new Blob([new Uint8Array(oggBuffer)], { type: 'audio/ogg' });
 
     const metadata = {
       assetType: 'Audio',
@@ -446,10 +462,11 @@ app.post('/api/roblox/upload', upload.single('file'), async (req, res) => {
       }
     };
 
+    const formData = new FormData();
     formData.append('request', JSON.stringify(metadata));
-    formData.append('fileContent', fileBlob, file.originalname || 'audio.wav');
+    formData.append('fileContent', fileBlob, 'audio.ogg');
 
-    console.log(`🚀 Uploading to Roblox: ${metadata.displayName} (Creator: ${userId || 'unknown'})`);
+    console.log(`🚀 Uploading to Roblox (Transcoded to OGG): ${metadata.displayName} (Creator: ${userId || 'unknown'})`);
 
     const response = await fetch('https://apis.roblox.com/assets/v1/assets', {
       method: 'POST',
@@ -473,8 +490,12 @@ app.post('/api/roblox/upload', upload.single('file'), async (req, res) => {
     }
 
     console.log('✅ Roblox Upload Successful:', data.path || data.id || 'Operation Created');
+    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { }
     res.json({ success: true, operation: data });
   } catch (error) {
+    if (tmpDir) {
+      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { }
+    }
     // DECREMENT ON EXCEPTION
     if (supabaseUserId) {
       const { data: user } = await supabase.from('users').select('current_role, uploads_today').eq('id', supabaseUserId).single();
@@ -495,6 +516,7 @@ app.post('/api/roblox/upload-from-url', async (req, res) => {
     return res.status(400).json({ success: false, error: 'Missing API Key or File URL' });
   }
 
+  let tmpDir = '';
   try {
     // RATE LIMIT CHECK
     if (supabaseUserId) {
@@ -524,7 +546,25 @@ app.post('/api/roblox/upload-from-url', async (req, res) => {
     if (!downloadRes.ok) throw new Error('Failed to download asset from source URL');
 
     const arrayBuffer = await downloadRes.arrayBuffer();
-    const fileBlob = new Blob([new Uint8Array(arrayBuffer)], { type: 'audio/wav' });
+    const buffer = Buffer.from(arrayBuffer);
+
+    const ffmpegLocation = os.platform() === 'win32'
+      ? 'ffmpeg'
+      : (process.env.FFMPEG_PATH || (fs.existsSync('/opt/homebrew/bin/ffmpeg') ? '/opt/homebrew/bin/ffmpeg' : 'ffmpeg'));
+
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'disperser-upload-url-'));
+    const inputPath = path.join(tmpDir, 'input_audio');
+    const outputPath = path.join(tmpDir, 'audio.ogg');
+    fs.writeFileSync(inputPath, buffer);
+
+    // Convert using ffmpeg to ogg
+    await new Promise<void>((resolve, reject) => {
+      execFile(ffmpegLocation, ['-i', inputPath, '-vn', '-codec:a', 'libvorbis', '-qscale:a', '5', '-y', outputPath],
+        { timeout: 60000 }, (err) => err ? reject(err) : resolve());
+    });
+
+    const oggBuffer = fs.readFileSync(outputPath);
+    const fileBlob = new Blob([new Uint8Array(oggBuffer)], { type: 'audio/ogg' });
 
     const metadata = {
       assetType: 'Audio',
@@ -539,9 +579,9 @@ app.post('/api/roblox/upload-from-url', async (req, res) => {
 
     const formData = new FormData();
     formData.append('request', JSON.stringify(metadata));
-    formData.append('fileContent', fileBlob, 'audio.wav');
+    formData.append('fileContent', fileBlob, 'audio.ogg');
 
-    console.log(`🚀 Streaming to Roblox: ${metadata.displayName}`);
+    console.log(`🚀 Streaming to Roblox (Transcoded to OGG): ${metadata.displayName}`);
 
     const response = await fetch('https://apis.roblox.com/assets/v1/assets', {
       method: 'POST',
@@ -562,8 +602,12 @@ app.post('/api/roblox/upload-from-url', async (req, res) => {
     }
 
     console.log('✅ Roblox Stream Successful');
+    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { }
     res.json({ success: true, operation: data });
   } catch (error) {
+    if (tmpDir) {
+      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { }
+    }
     // DECREMENT ON EXCEPTION
     if (supabaseUserId) {
       const { data: user } = await supabase.from('users').select('current_role, uploads_today').eq('id', supabaseUserId).single();
@@ -649,7 +693,7 @@ app.post('/api/youtube/download', async (req, res) => {
   if (!url) return res.status(400).json({ success: false, error: 'URL required' });
 
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'disperser-'));
-  const outputFile = path.join(tmpDir, 'audio.mp3');
+  const outputFile = path.join(tmpDir, 'audio.ogg');
   const ffmpegLocation = os.platform() === 'win32'
     ? 'ffmpeg'
     : (process.env.FFMPEG_PATH || (fs.existsSync('/opt/homebrew/bin/ffmpeg') ? '/opt/homebrew/bin/ffmpeg' : 'ffmpeg'));
@@ -710,8 +754,8 @@ app.post('/api/youtube/download', async (req, res) => {
         '--format', 'bestaudio/best/ba/b',
         '--ffmpeg-location', ffmpegLocation,
         '-x',
-        '--audio-format', 'mp3',
-        '--audio-quality', '0',
+        '--audio-format', 'ogg',
+        '--audio-quality', '5',
         '-o', outputFile,
         '--no-playlist',
         url
@@ -734,13 +778,13 @@ app.post('/api/youtube/download', async (req, res) => {
         let actualFile = outputFile;
         if (!fs.existsSync(actualFile)) {
           const files = fs.readdirSync(tmpDir);
-          const mp3File = files.find(f => f.endsWith('.mp3'));
-          if (mp3File) {
-            actualFile = path.join(tmpDir, mp3File);
+          const oggFile = files.find(f => f.endsWith('.ogg'));
+          if (oggFile) {
+            actualFile = path.join(tmpDir, oggFile);
           } else {
             const availableFiles = fs.readdirSync(tmpDir);
-            console.error('❌ MP3 file not found. Available files in tmp:', availableFiles);
-            throw new Error(`MP3 conversion failed - no output file found. Found: ${availableFiles.join(', ') || 'nothing'}`);
+            console.error('❌ OGG file not found. Available files in tmp:', availableFiles);
+            throw new Error(`OGG conversion failed - no output file found. Found: ${availableFiles.join(', ') || 'nothing'}`);
           }
         }
 
@@ -765,7 +809,7 @@ app.post('/api/youtube/download', async (req, res) => {
         ytdlpSucceeded = true;
         const stat = fs.statSync(actualFile);
 
-        res.setHeader('Content-Type', 'audio/mpeg');
+        res.setHeader('Content-Type', 'audio/ogg');
         res.setHeader('Content-Length', stat.size.toString());
         res.setHeader('X-Audio-Title', encodeURIComponent(title));
         res.setHeader('Access-Control-Expose-Headers', 'X-Audio-Title');
@@ -825,7 +869,7 @@ app.post('/api/youtube/download', async (req, res) => {
         title = fallbackResult.title || title;
         const stat = fs.statSync(fallbackResult.file);
 
-        res.setHeader('Content-Type', 'audio/mpeg');
+        res.setHeader('Content-Type', 'audio/ogg');
         res.setHeader('Content-Length', stat.size.toString());
         res.setHeader('X-Audio-Title', encodeURIComponent(title));
         res.setHeader('Access-Control-Expose-Headers', 'X-Audio-Title');

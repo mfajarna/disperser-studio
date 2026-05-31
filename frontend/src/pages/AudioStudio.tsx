@@ -3,7 +3,6 @@ import WaveSurfer from 'wavesurfer.js';
 import RegionsPlugin from 'wavesurfer.js/dist/plugins/regions.esm.js';
 import * as Tone from 'tone';
 import audioBufferToWav from 'audiobuffer-to-wav';
-import { encodeMp3 } from '@/utils/mp3Encoder';
 import { api } from '../api/api';
 import { useNavigate } from 'react-router-dom';
 import { usePollContext } from '@/context/PollContext';
@@ -199,7 +198,7 @@ export default function AudioStudio() {
       plugins: [regions.current = RegionsPlugin.create()]
     });
 
-    const blob = new Blob([item.buffer as any], { type: 'audio/mpeg' });
+    const blob = new Blob([item.buffer as any], { type: 'audio/ogg' });
     ws.current.loadBlob(blob);
 
     ws.current.on('ready', () => {
@@ -283,8 +282,8 @@ export default function AudioStudio() {
     setLoadingMsg('Downloading from YouTube...');
     try {
       const { title, buffer } = await api.ytDownload(ytUrl);
-      const blob = new Blob([buffer], { type: 'audio/mpeg' });
-      setFile(new File([blob], `${title}.mp3`));
+      const blob = new Blob([buffer], { type: 'audio/ogg' });
+      setFile(new File([blob], `${title}.ogg`));
       setAssetName(title);
       await api.addToHistory(title, ytUrl, buffer);
       setHistory(await api.getHistory());
@@ -334,8 +333,9 @@ export default function AudioStudio() {
         trimStart: trim.start,
         trimEnd: trim.end
       });
-      const mp3Blob = await encodeMp3((processed as any).get ? (processed as any).get() : processed);
-      await api.addToQueue(assetName.endsWith('.mp3') ? assetName : assetName + '.mp3', 'Uploaded via Studio', mp3Blob);
+      const rawWavBuffer = audioBufferToWav((processed as any).get ? (processed as any).get() : processed);
+      const wavBlob = new Blob([rawWavBuffer], { type: 'audio/wav' });
+      await api.addToQueue(assetName.endsWith('.ogg') ? assetName : assetName + '.ogg', 'Uploaded via Studio', wavBlob);
 
       setFile(null);
       setAssetName('');
@@ -400,8 +400,8 @@ export default function AudioStudio() {
 
 
   const handleLoadHistory = (item: any) => {
-    const blob = new Blob([item.buffer], { type: 'audio/mpeg' });
-    setFile(new File([blob], `${item.title}.mp3`));
+    const blob = new Blob([item.buffer], { type: 'audio/ogg' });
+    setFile(new File([blob], `${item.title}.ogg`));
     setAssetName(item.title);
     setYtUrl(item.ytUrl || '');
     setSaveError('');
@@ -463,7 +463,7 @@ export default function AudioStudio() {
                 </p>
                 <div className="flex flex-wrap justify-center md:justify-start gap-2 pt-2">
                   <Badge variant="secondary" className="bg-slate-800 text-slate-400 text-xs gap-1">
-                    <FileAudio size={12} /> MP3 Output
+                    <FileAudio size={12} /> OGG Output (Loopable)
                   </Badge>
                   <Badge variant="secondary" className="bg-slate-800 text-slate-400 text-xs gap-1">
                     <Sparkles size={12} /> Powered by Tone.js
@@ -503,7 +503,7 @@ export default function AudioStudio() {
                     </div>
                     <div>
                       <h3 className="font-bold text-white">Import from YouTube</h3>
-                      <p className="text-xs text-slate-500">Paste a video URL to extract audio as MP3</p>
+                      <p className="text-xs text-slate-500">Paste a video URL to extract audio as OGG</p>
                     </div>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-2">
