@@ -70,6 +70,7 @@ export default function AudioStudio() {
   const [pitch, setPitch] = useState(0);
   const [trim, setTrim] = useState({ start: 0, end: 0 });
   const [trimInput, setTrimInput] = useState({ start: '0:00.00', end: '0:00.00' });
+  const [activeInputFocus, setActiveInputFocus] = useState<'start' | 'end' | null>(null);
 
   const [history, setHistory] = useState<any[]>([]);
   const [ytError, setYtError] = useState('');
@@ -157,11 +158,11 @@ export default function AudioStudio() {
 
   // Keep trimInput in sync with trim state (when updated via dragging or initialization)
   useEffect(() => {
-    setTrimInput({
-      start: formatTrimTime(trim.start),
-      end: formatTrimTime(trim.end)
-    });
-  }, [trim.start, trim.end]);
+    setTrimInput(prev => ({
+      start: activeInputFocus === 'start' ? prev.start : formatTrimTime(trim.start),
+      end: activeInputFocus === 'end' ? prev.end : formatTrimTime(trim.end)
+    }));
+  }, [trim.start, trim.end, activeInputFocus]);
 
   const handleTrimInputChange = (type: 'start' | 'end', val: string) => {
     setTrimInput(prev => ({ ...prev, [type]: val }));
@@ -975,8 +976,12 @@ export default function AudioStudio() {
                             type="text"
                             placeholder="0:00.00"
                             value={trimInput.start}
+                            onFocus={() => setActiveInputFocus('start')}
                             onChange={(e) => handleTrimInputChange('start', e.target.value)}
-                            onBlur={handleTrimInputBlur}
+                            onBlur={() => {
+                              setActiveInputFocus(null);
+                              handleTrimInputBlur();
+                            }}
                             className="bg-slate-950/50 border-slate-800 text-xs font-mono text-cyan-400 focus-visible:ring-cyan-500/30 h-8"
                           />
                         </div>
@@ -986,8 +991,12 @@ export default function AudioStudio() {
                             type="text"
                             placeholder="0:00.00"
                             value={trimInput.end}
+                            onFocus={() => setActiveInputFocus('end')}
                             onChange={(e) => handleTrimInputChange('end', e.target.value)}
-                            onBlur={handleTrimInputBlur}
+                            onBlur={() => {
+                              setActiveInputFocus(null);
+                              handleTrimInputBlur();
+                            }}
                             className="bg-slate-950/50 border-slate-800 text-xs font-mono text-cyan-400 focus-visible:ring-cyan-500/30 h-8"
                           />
                         </div>
