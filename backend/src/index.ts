@@ -16,7 +16,7 @@ import ws from 'ws';
 global.WebSocket = ws;
 import { initBot, getBotClient } from './bot';
 
-// Try multiple prospective paths for the .env file to be robust against execution directory
+// Trys multiple prospective paths for the .env file to be robust against execution directory
 const envPaths = [
   path.resolve(__dirname, '../../.env'),
   path.resolve(process.cwd(), '.env'),
@@ -177,7 +177,7 @@ const extractVideoId = (url: string): string | null => {
     const u = new URL(url);
     if (u.hostname === 'youtu.be') return u.pathname.slice(1).split('?')[0];
     if (u.hostname.includes('youtube.com')) return u.searchParams.get('v');
-  } catch {}
+  } catch { }
   const match = url.match(/(?:v=|\/)([\w-]{11})(?:[&?\/]|$)/);
   return match ? match[1] : null;
 };
