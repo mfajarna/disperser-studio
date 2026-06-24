@@ -16,8 +16,29 @@ import ws from 'ws';
 global.WebSocket = ws;
 import { initBot, getBotClient } from './bot';
 
-dotenv.config({ path: path.resolve(__dirname, '../../.env') });
-console.log('📂 Checking for .env at:', path.resolve(__dirname, '../../.env'));
+// Try multiple prospective paths for the .env file to be robust against execution directory
+const envPaths = [
+  path.resolve(__dirname, '../../.env'),
+  path.resolve(process.cwd(), '.env'),
+  path.resolve(process.cwd(), '../.env'),
+  path.resolve(__dirname, '../.env'),
+];
+
+let envLoaded = false;
+for (const p of envPaths) {
+  if (fs.existsSync(p)) {
+    dotenv.config({ path: p });
+    console.log(`📂 Loaded .env from: ${p}`);
+    envLoaded = true;
+    break;
+  }
+}
+
+if (!envLoaded) {
+  dotenv.config();
+  console.log('⚠️ Fallback to default dotenv.config()');
+}
+
 if (process.env.YT_COOKIES) {
   console.log('✅ YT_COOKIES variable is detected (Length:', process.env.YT_COOKIES.length, ')');
 } else {
@@ -161,6 +182,25 @@ const extractVideoId = (url: string): string | null => {
   return match ? match[1] : null;
 };
 
+let cachedVorbisEncoderArgs: string[] | null = null;
+
+const getVorbisEncoderArgs = async (ffmpegLocation: string): Promise<string[]> => {
+  if (cachedVorbisEncoderArgs) return cachedVorbisEncoderArgs;
+
+  return new Promise((resolve) => {
+    execFile(ffmpegLocation, ['-encoders'], (err, stdout) => {
+      if (!err && stdout && stdout.includes('libvorbis')) {
+        console.log('✅ Found libvorbis encoder in ffmpeg');
+        cachedVorbisEncoderArgs = ['-codec:a', 'libvorbis', '-qscale:a', '5'];
+      } else {
+        console.log('⚠️ libvorbis encoder not found. Falling back to native vorbis encoder (strict experimental)');
+        cachedVorbisEncoderArgs = ['-codec:a', 'vorbis', '-strict', '-2', '-qscale:a', '5'];
+      }
+      resolve(cachedVorbisEncoderArgs);
+    });
+  });
+};
+
 const downloadViaInvidious = async (videoId: string, tmpDir: string, ffmpegLocation: string): Promise<{ file: string; title: string } | null> => {
   for (const instance of INVIDIOUS_INSTANCES) {
     try {
@@ -194,8 +234,9 @@ const downloadViaInvidious = async (videoId: string, tmpDir: string, ffmpegLocat
 
       // Convert to OGG with ffmpeg
       const outputFile = path.join(tmpDir, 'audio.ogg');
+      const vorbisArgs = await getVorbisEncoderArgs(ffmpegLocation);
       await new Promise<void>((resolve, reject) => {
-        execFile(ffmpegLocation, ['-i', rawFile, '-vn', '-codec:a', 'libvorbis', '-qscale:a', '5', '-y', outputFile],
+        execFile(ffmpegLocation, ['-i', rawFile, '-vn', ...vorbisArgs, '-y', outputFile],
           { timeout: 60000 }, (err) => err ? reject(err) : resolve());
       });
 
@@ -239,8 +280,9 @@ const downloadViaPiped = async (videoId: string, tmpDir: string, ffmpegLocation:
       fs.writeFileSync(rawFile, buffer);
 
       const outputFile = path.join(tmpDir, 'audio.ogg');
+      const vorbisArgs = await getVorbisEncoderArgs(ffmpegLocation);
       await new Promise<void>((resolve, reject) => {
-        execFile(ffmpegLocation, ['-i', rawFile, '-vn', '-codec:a', 'libvorbis', '-qscale:a', '5', '-y', outputFile],
+        execFile(ffmpegLocation, ['-i', rawFile, '-vn', ...vorbisArgs, '-y', outputFile],
           { timeout: 60000 }, (err) => err ? reject(err) : resolve());
       });
 
@@ -443,8 +485,9 @@ app.post('/api/roblox/upload', upload.single('file'), async (req, res) => {
     fs.writeFileSync(inputPath, file.buffer);
 
     // Convert using ffmpeg to ogg
+    const vorbisArgs = await getVorbisEncoderArgs(ffmpegLocation);
     await new Promise<void>((resolve, reject) => {
-      execFile(ffmpegLocation, ['-i', inputPath, '-vn', '-codec:a', 'libvorbis', '-qscale:a', '5', '-y', outputPath],
+      execFile(ffmpegLocation, ['-i', inputPath, '-vn', ...vorbisArgs, '-y', outputPath],
         { timeout: 60000 }, (err) => err ? reject(err) : resolve());
     });
 
@@ -558,8 +601,9 @@ app.post('/api/roblox/upload-from-url', async (req, res) => {
     fs.writeFileSync(inputPath, buffer);
 
     // Convert using ffmpeg to ogg
+    const vorbisArgs = await getVorbisEncoderArgs(ffmpegLocation);
     await new Promise<void>((resolve, reject) => {
-      execFile(ffmpegLocation, ['-i', inputPath, '-vn', '-codec:a', 'libvorbis', '-qscale:a', '5', '-y', outputPath],
+      execFile(ffmpegLocation, ['-i', inputPath, '-vn', ...vorbisArgs, '-y', outputPath],
         { timeout: 60000 }, (err) => err ? reject(err) : resolve());
     });
 
@@ -748,14 +792,19 @@ app.post('/api/youtube/download', async (req, res) => {
 
       console.log(`🔄 Trying strategy: "${strategy.name}" for ${url}`);
 
+      const vorbisArgs = await getVorbisEncoderArgs(ffmpegLocation);
+      const encoderName = vorbisArgs.includes('libvorbis') ? 'libvorbis' : 'vorbis';
+      const extraPPArgs = encoderName === 'vorbis' ? ' -strict -2' : '';
+
       const downloadArgs = [
         ...strategy.args,
         '--rm-cache-dir',
         '--format', 'bestaudio/best/ba/b',
         '--ffmpeg-location', ffmpegLocation,
         '-x',
-        '--audio-format', 'ogg',
+        '--audio-format', 'vorbis',
         '--audio-quality', '5',
+        '--postprocessor-args', `ExtractAudio:-acodec ${encoderName}${extraPPArgs}`,
         '-o', outputFile,
         '--no-playlist',
         url

@@ -69,6 +69,7 @@ export default function AudioStudio() {
   const [speed, setSpeed] = useState(1);
   const [pitch, setPitch] = useState(0);
   const [trim, setTrim] = useState({ start: 0, end: 0 });
+  const [trimInput, setTrimInput] = useState({ start: '0.00', end: '0.00' });
 
   const [history, setHistory] = useState<any[]>([]);
   const [ytError, setYtError] = useState('');
@@ -121,6 +122,51 @@ export default function AudioStudio() {
 
   // Keep trimRef in sync
   useEffect(() => { trimRef.current = trim; }, [trim]);
+
+  // Keep trimInput in sync with trim state (when updated via dragging or initialization)
+  useEffect(() => {
+    setTrimInput({
+      start: trim.start.toFixed(2),
+      end: trim.end.toFixed(2)
+    });
+  }, [trim.start, trim.end]);
+
+  const handleTrimInputChange = (type: 'start' | 'end', val: string) => {
+    setTrimInput(prev => ({ ...prev, [type]: val }));
+
+    const parsed = parseFloat(val);
+    if (!isNaN(parsed)) {
+      const newStart = type === 'start' ? Math.max(0, Math.min(parsed, duration)) : trim.start;
+      const newEnd = type === 'end' ? Math.max(0, Math.min(parsed, duration)) : trim.end;
+
+      setTrim({ start: newStart, end: newEnd });
+
+      const region = regions.current?.getRegions()?.find((r: any) => r.id === 'trim');
+      if (region) {
+        region.update({ start: newStart, end: newEnd });
+      }
+    }
+  };
+
+  const handleTrimInputBlur = () => {
+    let newStart = Math.max(0, Math.min(parseFloat(trimInput.start) || 0, duration));
+    let newEnd = Math.max(0, Math.min(parseFloat(trimInput.end) || duration, duration));
+
+    if (newStart >= newEnd) {
+      newStart = Math.max(0, newEnd - 0.1);
+    }
+
+    setTrim({ start: newStart, end: newEnd });
+    setTrimInput({
+      start: newStart.toFixed(2),
+      end: newEnd.toFixed(2)
+    });
+
+    const region = regions.current?.getRegions()?.find((r: any) => r.id === 'trim');
+    if (region) {
+      region.update({ start: newStart, end: newEnd });
+    }
+  };
 
   // Format seconds to mm:ss
   const formatTime = (s: number) => {
@@ -826,7 +872,7 @@ export default function AudioStudio() {
 
                 <div className="p-4 md:p-6 space-y-8">
                   {/* Audio Controls Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                     {/* Volume */}
                     <div className="space-y-3 rounded-xl p-4 border bg-slate-900/30 border-slate-800/50">
                       <div className="flex items-center justify-between">
@@ -870,6 +916,55 @@ export default function AudioStudio() {
                       </div>
                       <Slider value={[pitch + 100]} min={0} max={200} step={1} onValueChange={(v) => setPitch(v[0] - 100)} />
                       <p className="text-[10px] text-slate-600">Pitch adjustment (-100% to +100%)</p>
+                    </div>
+
+                    {/* Trim Manual Input */}
+                    <div className="space-y-3 rounded-xl p-4 border bg-slate-900/30 border-slate-800/50">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-slate-400 uppercase flex items-center gap-2">
+                          <Scissors size={14} className="text-cyan-400" /> Trim Manual
+                        </label>
+                        <button
+                          onClick={() => {
+                            setTrim({ start: 0, end: duration });
+                            setTrimInput({ start: '0.00', end: duration.toFixed(2) });
+                            const region = regions.current?.getRegions()?.find((r: any) => r.id === 'trim');
+                            if (region) region.update({ start: 0, end: duration });
+                          }}
+                          className="text-[10px] text-slate-600 hover:text-slate-400 transition-colors"
+                        >
+                          Reset
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 pt-1">
+                        <div className="space-y-1.5">
+                          <span className="text-[10px] text-slate-500 font-medium">Start (sec)</span>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min={0}
+                            max={duration}
+                            value={trimInput.start}
+                            onChange={(e) => handleTrimInputChange('start', e.target.value)}
+                            onBlur={handleTrimInputBlur}
+                            className="bg-slate-950/50 border-slate-800 text-xs font-mono text-cyan-400 focus-visible:ring-cyan-500/30 h-8"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <span className="text-[10px] text-slate-500 font-medium">End (sec)</span>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min={0}
+                            max={duration}
+                            value={trimInput.end}
+                            onChange={(e) => handleTrimInputChange('end', e.target.value)}
+                            onBlur={handleTrimInputBlur}
+                            className="bg-slate-950/50 border-slate-800 text-xs font-mono text-cyan-400 focus-visible:ring-cyan-500/30 h-8"
+                          />
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-slate-600">Set start/end times manually</p>
                     </div>
                   </div>
 
