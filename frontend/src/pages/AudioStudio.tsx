@@ -1036,7 +1036,7 @@ export default function AudioStudio() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => { setVolume(0.05); setSpeed(2.3); }}
+                        onClick={() => { setVolume(0.07); setSpeed(2.3); }}
                         className="bg-cyan-500/10 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 gap-2 h-10 w-full sm:w-auto"
                       >
                         <Sparkles size={14} /> Auto Optimize
