@@ -235,7 +235,7 @@ export const BulkItemEditor: React.FC<BulkItemEditorProps> = ({ item, onUpdate, 
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  onClick={() => onUpdate(item.id, { volume: 0.05, speed: 2.3 })}
+                  onClick={() => onUpdate(item.id, { volume: 0.07, speed: 2.3 })}
                   className="w-full text-[10px] h-9 bg-cyan-500/5 border-cyan-500/20 text-cyan-400 hover:bg-cyan-500/10 gap-2 font-bold"
                 >
                   <Sparkles size={12} /> OPTIMIZE FOR ROBLOX

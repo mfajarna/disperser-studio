@@ -804,10 +804,10 @@ export default function AudioStudio() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => { applyToAll('volume', 0.05); applyToAll('speed', 2.3); }}
+                    onClick={() => { applyToAll('volume', 0.07); applyToAll('speed', 2.3); }}
                     className="text-[10px] h-8 bg-cyan-500/10 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 gap-1.5"
                   >
-                    <Sparkles size={12} /> Auto Optimize (5% Vol, 2.3x Speed)
+                    <Sparkles size={12} /> Auto Optimize (7% Vol, 2.3x Speed)
                   </Button>
                 </div>
               </div>
@@ -817,7 +817,7 @@ export default function AudioStudio() {
                 <AlertCircle size={16} className="text-cyan-400 mt-0.5 shrink-0" />
                 <p className="text-xs text-slate-400 leading-relaxed">
                   <span className="text-cyan-400 font-bold uppercase tracking-wider mr-2">Roblox Best Practice:</span>
-                  To increase approval rates, use <span className="text-white font-medium">5% Volume</span> and <span className="text-white font-medium">2.3x Speed</span>.
+                  To increase approval rates, use <span className="text-white font-medium">7% Volume</span> and <span className="text-white font-medium">2.3x Speed</span>.
                   After uploading, set the <span className="text-cyan-400 font-bold underline">PlaybackSpeed to 0.43</span> in your Roblox sound properties.
                 </p>
               </div>
