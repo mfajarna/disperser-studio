@@ -69,7 +69,7 @@ export default function AudioStudio() {
   const [speed, setSpeed] = useState(1);
   const [pitch, setPitch] = useState(0);
   const [trim, setTrim] = useState({ start: 0, end: 0 });
-  const [trimInput, setTrimInput] = useState({ start: '0.00', end: '0.00' });
+  const [trimInput, setTrimInput] = useState({ start: '0:00.00', end: '0:00.00' });
 
   const [history, setHistory] = useState<any[]>([]);
   const [ytError, setYtError] = useState('');
@@ -123,18 +123,50 @@ export default function AudioStudio() {
   // Keep trimRef in sync
   useEffect(() => { trimRef.current = trim; }, [trim]);
 
+  // Format seconds to mm:ss.xx
+  const formatTrimTime = (s: number) => {
+    if (isNaN(s) || s < 0) return '0:00.00';
+    const m = Math.floor(s / 60);
+    const sec = (s % 60).toFixed(2);
+    const [secInt, secDec] = sec.split('.');
+    const paddedSecInt = secInt.padStart(2, '0');
+    return `${m}:${paddedSecInt}.${secDec}`;
+  };
+
+  // Parse mm:ss.xx or seconds string back to seconds
+  const parseTimeToSeconds = (str: string): number => {
+    if (!str) return 0;
+    const parts = str.trim().split(':');
+    if (parts.length === 1) {
+      const sec = parseFloat(parts[0]);
+      return isNaN(sec) ? 0 : sec;
+    }
+    if (parts.length === 2) {
+      const min = parseInt(parts[0], 10) || 0;
+      const sec = parseFloat(parts[1]) || 0;
+      return min * 60 + sec;
+    }
+    if (parts.length >= 3) {
+      const hr = parseInt(parts[0], 10) || 0;
+      const min = parseInt(parts[1], 10) || 0;
+      const sec = parseFloat(parts[2]) || 0;
+      return hr * 3600 + min * 60 + sec;
+    }
+    return 0;
+  };
+
   // Keep trimInput in sync with trim state (when updated via dragging or initialization)
   useEffect(() => {
     setTrimInput({
-      start: trim.start.toFixed(2),
-      end: trim.end.toFixed(2)
+      start: formatTrimTime(trim.start),
+      end: formatTrimTime(trim.end)
     });
   }, [trim.start, trim.end]);
 
   const handleTrimInputChange = (type: 'start' | 'end', val: string) => {
     setTrimInput(prev => ({ ...prev, [type]: val }));
 
-    const parsed = parseFloat(val);
+    const parsed = parseTimeToSeconds(val);
     if (!isNaN(parsed)) {
       const newStart = type === 'start' ? Math.max(0, Math.min(parsed, duration)) : trim.start;
       const newEnd = type === 'end' ? Math.max(0, Math.min(parsed, duration)) : trim.end;
@@ -149,8 +181,8 @@ export default function AudioStudio() {
   };
 
   const handleTrimInputBlur = () => {
-    let newStart = Math.max(0, Math.min(parseFloat(trimInput.start) || 0, duration));
-    let newEnd = Math.max(0, Math.min(parseFloat(trimInput.end) || duration, duration));
+    let newStart = Math.max(0, Math.min(parseTimeToSeconds(trimInput.start), duration));
+    let newEnd = Math.max(0, Math.min(parseTimeToSeconds(trimInput.end), duration));
 
     if (newStart >= newEnd) {
       newStart = Math.max(0, newEnd - 0.1);
@@ -158,8 +190,8 @@ export default function AudioStudio() {
 
     setTrim({ start: newStart, end: newEnd });
     setTrimInput({
-      start: newStart.toFixed(2),
-      end: newEnd.toFixed(2)
+      start: formatTrimTime(newStart),
+      end: formatTrimTime(newEnd)
     });
 
     const region = regions.current?.getRegions()?.find((r: any) => r.id === 'trim');
@@ -927,7 +959,7 @@ export default function AudioStudio() {
                         <button
                           onClick={() => {
                             setTrim({ start: 0, end: duration });
-                            setTrimInput({ start: '0.00', end: duration.toFixed(2) });
+                            setTrimInput({ start: '0:00.00', end: formatTrimTime(duration) });
                             const region = regions.current?.getRegions()?.find((r: any) => r.id === 'trim');
                             if (region) region.update({ start: 0, end: duration });
                           }}
@@ -938,12 +970,10 @@ export default function AudioStudio() {
                       </div>
                       <div className="grid grid-cols-2 gap-3 pt-1">
                         <div className="space-y-1.5">
-                          <span className="text-[10px] text-slate-500 font-medium">Start (sec)</span>
+                          <span className="text-[10px] text-slate-500 font-medium">Start (m:ss)</span>
                           <Input
-                            type="number"
-                            step="0.01"
-                            min={0}
-                            max={duration}
+                            type="text"
+                            placeholder="0:00.00"
                             value={trimInput.start}
                             onChange={(e) => handleTrimInputChange('start', e.target.value)}
                             onBlur={handleTrimInputBlur}
@@ -951,12 +981,10 @@ export default function AudioStudio() {
                           />
                         </div>
                         <div className="space-y-1.5">
-                          <span className="text-[10px] text-slate-500 font-medium">End (sec)</span>
+                          <span className="text-[10px] text-slate-500 font-medium">End (m:ss)</span>
                           <Input
-                            type="number"
-                            step="0.01"
-                            min={0}
-                            max={duration}
+                            type="text"
+                            placeholder="0:00.00"
                             value={trimInput.end}
                             onChange={(e) => handleTrimInputChange('end', e.target.value)}
                             onBlur={handleTrimInputBlur}
